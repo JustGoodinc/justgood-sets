@@ -2,7 +2,11 @@ JustGood Sets - desktop version (for the Pioneer DDJ-FLX4)
 
 1. Close rekordbox, Serato or any other DJ app (Windows lets only one app use the controller).
 2. Plug the DDJ-FLX4 into this computer over USB.
-3. Optional: in Windows Sound settings, set "DDJ-FLX4" as the output device to hear music through it.
+3. Plug your speakers into the FLX4's MASTER OUT and headphones into its PHONES socket.
+   Once connected, the app plays its sound through the FLX4, which the MASTER LEVEL knob needs:
+   that knob works inside the FLX4 and only turns down sound that plays through it.
+   If "SOUND -> FLX4" appears at the top, press it (Chrome asks for the microphone only to list
+   sound devices; nothing is recorded), or set "DDJ-FLX4" as the output in Windows Sound settings.
 4. Double-click "Start JustGood Sets.bat". Chrome opens the app; keep the black window open while you play.
 5. Press CONNECT at the top of the page and click Allow when Chrome asks about MIDI devices.
    The button shows "FLX4 ✓" when the controller is found.

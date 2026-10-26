@@ -949,6 +949,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
     <div class="tb-group tb-hw">
       <label class="btn model-pick"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16"/><rect x="3" y="7" width="4" height="3" rx="1"/><rect x="10" y="13" width="4" height="3" rx="1"/><rect x="17" y="9" width="4" height="3" rx="1"/></svg><span>CONTROLLER</span> <select id="model" aria-label="Controller layout"><option value="classic">Classic</option><option value="mobile">Mobile</option><option value="mixstream">Mixstream Pro</option><option value="flx4">DDJ-FLX4</option><option value="flx2">DDJ-FLX2</option></select></label>
       <button class="btn" id="flx-connect" title="Connect a Pioneer DDJ-FLX4 (Chrome or Edge on a computer)"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4"/></svg><span>CONNECT</span></button>
+      <button class="btn" id="flx-sound" hidden title="Play the sound through the DDJ-FLX4 so its MASTER LEVEL and headphone knobs work"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg><span>SOUND → FLX4</span></button>
     </div>
     <div class="tb-group">
       <button class="btn" data-library="" aria-haspopup="dialog"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11M4 11h11M4 16h7"/><circle cx="17.5" cy="17" r="2.5"/><path d="M20 17V7l-3 1"/></svg><span>LIBRARY</span></button>
@@ -1165,6 +1166,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
         <h3>DDJ-FLX4 controller</h3>
         <p>The FLX4 works in Chrome or Edge on a computer, using the desktop version (double-click Start JustGood Sets). The claude.ai link can't reach USB devices.</p>
         <dl>
+          <dt>MASTER LEVEL and headphones</dt><dd>These knobs work inside the FLX4's own sound card and send nothing to the app, so they only work when the sound plays through the FLX4. When the FLX4 connects, the app sends its sound there automatically. If SOUND → FLX4 appears at the top instead, press it: Chrome asks for the microphone only so it can list sound devices by name, and nothing is recorded. You can also set DDJ-FLX4 as the output in Windows Sound settings. Plug speakers into the FLX4's MASTER OUT and headphones into its PHONES socket.</dd>
           <dt>Connect</dt><dd>Close rekordbox and any other DJ app (on Windows only one app can use the controller), plug in the FLX4, press CONNECT at the top of the page and allow MIDI when Chrome asks. The button shows FLX4 ✓ once it's found; after that it reconnects by itself.</dd>
           <dt>Sound</dt><dd>In Windows Sound settings, choose DDJ-FLX4 as the output to hear the music through the FLX4's master output.</dd>
           <dt>Decks</dt><dd>PLAY, CUE (with the usual hold-to-preview), SYNC and SHIFT + CUE (back to the start) work as labelled. TEMPO, TRIM, EQ, CFX (the filter) and the channel faders and crossfader move the matching controls on screen.</dd>
@@ -3418,14 +3420,49 @@ function flxFind(prompted) {
   flx.sent.clear();
   if (!input) {
     flxStatus(prompted || flxBtn.classList.contains('on') ? 'No DDJ-FLX4 found. Plug it in over USB and close rekordbox or any other DJ app that is using it.' : '', false);
+    flxSoundBtn.hidden = true;
+    if (flx.sound) { flx.sound = false; ctx.setSinkId('').catch(() => {}); } // back to this computer's speakers
     return;
   }
   input.onmidimessage = e => flxMessage(e.data);
   if (output && flx.sysex) output.send(FLX_KEEPALIVE);
   flxStatus('DDJ-FLX4 connected.', true);
+  flxAudio(false);
   if (lib.lists.length) renderRows();
 }
 flxBtn.addEventListener('click', () => flxConnect(true));
+
+// The FLX4's MASTER LEVEL and HEADPHONES LEVEL knobs act on its own sound card and send no MIDI, so they only change
+// sound that plays through the FLX4. Once it connects, the app's sound goes there (Chrome and Edge can pick an output).
+const flxSoundBtn = document.getElementById('flx-sound');
+async function flxAudio(fromClick) {
+  if (!ctx.setSinkId || !navigator.mediaDevices?.enumerateDevices) {
+    if (fromClick) statusEl.textContent = "This browser can't choose a sound output. In Windows Sound settings, set DDJ-FLX4 as the output.";
+    return;
+  }
+  const find = async () => (await navigator.mediaDevices.enumerateDevices()).find(d => d.kind === 'audiooutput' && /FLX4/i.test(d.label));
+  let dev = await find().catch(() => null);
+  if (!dev && fromClick) {
+    // Chrome only names sound devices for pages allowed to use the microphone; nothing is recorded, the stream stops at once
+    try { (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().forEach(t => t.stop()); dev = await find(); } catch {}
+  }
+  if (!dev) {
+    flxSoundBtn.hidden = false;
+    statusEl.textContent = fromClick
+      ? "Couldn't find the DDJ-FLX4's sound output. Allow the microphone prompt (it's only used to list sound devices), or set DDJ-FLX4 as the output in Windows Sound settings."
+      : 'DDJ-FLX4 connected. Sound still plays from this computer, so MASTER LEVEL does nothing yet: press SOUND → FLX4.';
+    return;
+  }
+  try {
+    await ctx.setSinkId(dev.deviceId);
+    flx.sound = true;
+    flxSoundBtn.hidden = true;
+    statusEl.textContent = 'DDJ-FLX4 connected. Sound plays through it, so MASTER LEVEL and the headphone knobs work.';
+  } catch {
+    statusEl.textContent = "Couldn't switch the sound to the DDJ-FLX4. In Windows Sound settings, set DDJ-FLX4 as the output.";
+  }
+}
+flxSoundBtn.addEventListener('click', () => flxAudio(true));
 document.getElementById('flx-flip').addEventListener('click', () => {
   flxTempoFlip = !flxTempoFlip;
   flx.tempoTaken = [false, false];
