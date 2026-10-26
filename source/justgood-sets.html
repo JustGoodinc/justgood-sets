@@ -246,6 +246,60 @@ canvas { display: block; width: 100%; background: var(--well); border-radius: 6p
 .ms-only, .flx-only, .flx2-only, .mob-only { display: none !important; }
 .rig.mixstream .ms-only, .rig.flx4 .flx-only, .rig.flx2 .flx2-only, .rig.mobile .mob-only { display: flex !important; }
 
+/* ---- Pioneer CDJ-2000NXS2 ×2 with the mixer between (from the Operating Instructions, "Control panel", p.13).
+   Each player is the same unit, not mirrored. Left column: the four HOT CUE buttons (A–D, BANK flips to E–H),
+   then CUE and PLAY/PAUSE at the bottom. Middle: BROWSE above the screen, the loop buttons (IN/CUE, OUT,
+   RELOOP/EXIT, 4/8 BEAT) top left of the jog and CUE/LOOP CALL top right. Right: BEAT SYNC over the long TEMPO
+   slider. The mixer names the filter COLOR and shows BEAT FX, as on a DJM. ---- */
+.rig.cdj { gap: 14px; background: none; border: 0; box-shadow: none; padding: 0; }
+.rig.cdj :is(.flx-top, .flx-fx, .mob-head) { display: flex !important; }
+.rig.cdj :is(.deck, .mixer) {
+  background: linear-gradient(180deg, var(--panel), var(--chassis)); border: 1px solid var(--edge); border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .07), 0 30px 60px -24px rgb(0 0 0 / .9);
+}
+.rig.cdj .deck {
+  display: grid; gap: 10px 12px; padding: 14px 12px; align-items: center; justify-items: center;
+  grid-template-columns: 84px minmax(0, 1fr) 70px;
+  grid-template-areas:
+    "pads brw   brw"
+    "pads head  head"
+    "pads loop  loop"
+    "bank jog   sync"
+    "cue  jog   tempo"
+    "play jog   tempo";
+}
+.rig.cdj :is(.deck-top, .deck-body, .transport) { display: contents; }
+.rig.cdj :is(.deck-tag, .fine, .tempo .lbl, .ft-sync) { display: none; }
+.rig.cdj .deck-top [data-library] { grid-area: brw; justify-self: start; font-size: 0; padding: 6px 18px; }
+.rig.cdj .deck-top [data-library]::after { content: "BROWSE"; font-size: 10px; }
+.rig.cdj .mob-head {
+  grid-area: head; align-self: stretch; justify-self: stretch; min-height: 92px; box-sizing: border-box;
+  flex-direction: column; justify-content: center; gap: 6px; padding: 10px 12px;
+  background: var(--well); border: 2px solid var(--edge); border-radius: 6px; box-shadow: inset 0 0 22px rgb(0 0 0 / .7);
+}
+.rig.cdj .mob-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 14px; }
+.rig.cdj .flx-top { grid-area: loop; justify-self: stretch; justify-content: space-between; align-items: flex-end; gap: 6px; }
+.rig.cdj .pads { grid-area: pads; align-self: stretch; grid-template-columns: 1fr; align-content: space-evenly; gap: 10px; width: 100%; }
+.rig.cdj .pad { height: 30px; }
+.rig.cdj .pads:not(.bank-1) .pad:nth-child(n+5), .rig.cdj .pads.bank-1 .pad:nth-child(-n+4) { display: none; }
+.rig.cdj .pad-modes { grid-area: bank; }
+.rig.cdj .mode:not([data-mode="hot"]) { display: none; }
+.rig.cdj .mode[data-mode="hot"] { font-size: 0; padding: 5px 8px; }
+.rig.cdj .mode[data-mode="hot"]::before { content: "BANK A–D"; font-size: 9px; }
+.rig.cdj .pad-modes.bank-1 .mode[data-mode="hot"]::before { content: "BANK E–H"; }
+.rig.cdj .jog { grid-area: jog; width: 100%; max-width: 250px; }
+.rig.cdj [id^="sync-"] { grid-area: sync; padding: 6px 10px; }
+.rig.cdj .tempo { grid-area: tempo; align-self: end; }
+.rig.cdj .tempo .vfader { height: 180px; }
+.rig.cdj .cue { grid-area: cue; }
+.rig.cdj .play { grid-area: play; }
+.rig.cdj :is(.cue, .play) { width: 66px; height: 66px; }
+.rig.cdj { align-items: stretch; }
+.rig.cdj .mixer { padding: 14px 12px; grid-template-columns: auto auto; grid-template-areas: "chans fx" "xf xf"; align-content: space-between; column-gap: 12px; }
+.rig.cdj .chans { grid-area: chans; }
+.rig.cdj .flx-fx { grid-area: fx; flex-direction: column; align-items: center; gap: 10px; padding-left: 12px; border-left: 1px solid var(--edge); }
+.rig.cdj .xf { grid-area: xf; }
+
 /* ---- Mobile layout (automatic on phones): large touch targets, one panel per deck holding that channel's
    EQ, filter and volume, and a big crossfader between the decks. Portrait stacks deck 1, crossfader, deck 2;
    landscape puts them side by side. Pads come four at a time; tap the lit pad mode again for pads 5–8. ---- */
@@ -814,7 +868,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
 }
 /* ---- Booth glass: the toolbar, panels, buttons and dialogs get depth, light and motion.
    Looks only: no rule here moves or resizes anything inside the controller layouts. ---- */
-@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes rise { from { transform: translateY(14px); } } /* slide only: a paused or thumbnail render never shows an empty page */
 @keyframes dlg-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
 @keyframes fade-in { from { opacity: 0; } }
 /* Page load: header, waveforms, then the controller rise into place one after another */
@@ -947,7 +1001,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
   <p class="status" id="status" role="status">Building two demo loops…</p>
   <nav class="bar-btns" aria-label="Tools">
     <div class="tb-group tb-hw">
-      <label class="btn model-pick"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16"/><rect x="3" y="7" width="4" height="3" rx="1"/><rect x="10" y="13" width="4" height="3" rx="1"/><rect x="17" y="9" width="4" height="3" rx="1"/></svg><span>CONTROLLER</span> <select id="model" aria-label="Controller layout"><option value="classic">Classic</option><option value="mobile">Mobile</option><option value="mixstream">Mixstream Pro</option><option value="flx4">DDJ-FLX4</option><option value="flx2">DDJ-FLX2</option></select></label>
+      <label class="btn model-pick"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16"/><rect x="3" y="7" width="4" height="3" rx="1"/><rect x="10" y="13" width="4" height="3" rx="1"/><rect x="17" y="9" width="4" height="3" rx="1"/></svg><span>CONTROLLER</span> <select id="model" aria-label="Controller layout"><option value="classic">Classic</option><option value="mobile">Mobile</option><option value="mixstream">Mixstream Pro</option><option value="flx4">DDJ-FLX4</option><option value="flx2">DDJ-FLX2</option><option value="cdj">CDJ-2000NXS2 ×2</option></select></label>
       <button class="btn" id="flx-connect" title="Connect a Pioneer DDJ-FLX4 (Chrome or Edge on a computer)"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4"/></svg><span>CONNECT</span></button>
       <button class="btn" id="flx-sound" hidden title="Play the sound through the DDJ-FLX4 so its MASTER LEVEL and headphone knobs work"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg><span>SOUND → FLX4</span></button>
     </div>
@@ -1080,7 +1134,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
           <dt>Use your library</dt><dd>Open it with LIBRARY at the top of the page or LOAD on a deck. Link a rekordbox or Engine DJ USB, import a rekordbox XML export or link a music folder there. See <button class="help-link" data-help="library">Library, rekordbox and Engine</button>.</dd>
           <dt>Mix two tracks</dt><dd>Play deck 1, load deck 2, press SYNC on deck 2, line up the beats in the stacked waveform, then bring it in with the crossfader.</dd>
           <dt>Knobs</dt><dd>Drag up or down, scroll, or use the arrow keys. Double-click returns a knob to its centre.</dd>
-          <dt>CONTROLLER</dt><dd>At the top of the page, switches the layout. Classic is the original two-deck layout. Mixstream Pro follows that unit's top panel: big platters, SYNC / CUE / PLAY down the left of each deck, the pitch fader with bend +/− on the right, one row of 4 pads (press the lit pad mode again for pads 5–8), and a centre screen with LOAD 1 / BROWSE / LOAD 2 and FX switches. Pick an effect in the middle, then click a channel's switch to latch it on, or hold the switch for a momentary effect.<br><br>DDJ-FLX4 follows that controller's top panel: IN / OUT / 4 BEAT/EXIT / CUE/LOOP CALL ◀ ▶ / BEAT SYNC across the top of each deck, SHIFT, CUE and PLAY down the left, TEMPO on the right, the level meters between the channel strips, MASTER LEVEL top right and a working BEAT FX section (channel 1, 2 or both, FX SELECT, BEAT ◀ ▶ for the echo time, LEVEL/DEPTH, ON/OFF). IN then OUT makes a loop on the beat; CUE/LOOP CALL halves or doubles a loop, or jumps between hot cues.<br><br>DDJ-FLX2 follows its smaller panel: no TRIM, master knob or meters (they keep their settings), and you change pad mode like on the unit: SHIFT, then BEAT SYNC, then one of the top four pads (HOT CUE, PAD FX, LOOP, SAMPLER). The labels over the pads work as a shortcut. On-screen SHIFT: click it, then press the next button.<br><br>Every layout runs the same decks, and this browser remembers your choice. The controller layouts need a wide screen; phones show Classic.</dd>
+          <dt>CONTROLLER</dt><dd>At the top of the page, switches the layout. Classic is the original two-deck layout. Mixstream Pro follows that unit's top panel: big platters, SYNC / CUE / PLAY down the left of each deck, the pitch fader with bend +/− on the right, one row of 4 pads (press the lit pad mode again for pads 5–8), and a centre screen with LOAD 1 / BROWSE / LOAD 2 and FX switches. Pick an effect in the middle, then click a channel's switch to latch it on, or hold the switch for a momentary effect.<br><br>DDJ-FLX4 follows that controller's top panel: IN / OUT / 4 BEAT/EXIT / CUE/LOOP CALL ◀ ▶ / BEAT SYNC across the top of each deck, SHIFT, CUE and PLAY down the left, TEMPO on the right, the level meters between the channel strips, MASTER LEVEL top right and a working BEAT FX section (channel 1, 2 or both, FX SELECT, BEAT ◀ ▶ for the echo time, LEVEL/DEPTH, ON/OFF). IN then OUT makes a loop on the beat; CUE/LOOP CALL halves or doubles a loop, or jumps between hot cues.<br><br>DDJ-FLX2 follows its smaller panel: no TRIM, master knob or meters (they keep their settings), and you change pad mode like on the unit: SHIFT, then BEAT SYNC, then one of the top four pads (HOT CUE, PAD FX, LOOP, SAMPLER). The labels over the pads work as a shortcut. On-screen SHIFT: click it, then press the next button.<br><br>CDJ-2000NXS2 ×2 follows the player's control panel, twice, with a mixer between: the four HOT CUE buttons down the left (BANK switches A–D and E–H), CUE and PLAY/PAUSE at the bottom left, BROWSE above the screen, the loop buttons top left of the jog and CUE/LOOP CALL top right, BEAT SYNC over the long TEMPO slider. The mixer calls the filter COLOR and has BEAT FX on the right, as on a DJM.<br><br>Every layout runs the same decks, and this browser remembers your choice. The controller layouts need a wide screen; phones and narrow windows show the Mobile layout.</dd>
         </dl>
       </article>
       <article role="tabpanel" data-topic="decks">
@@ -3039,7 +3093,7 @@ for (const d of ['a', 'b']) {
   $('pads').addEventListener('contextmenu', e => { const p = e.target.closest('.pad'); if (p && deck.mode === 'hot') { e.preventDefault(); padPress(deck, +p.dataset.i, true); } });
   u.modes.forEach(m => m.addEventListener('click', () => {
     // Mixstream layout shows 4 pads at a time: pressing the lit mode again flips to the second bank (pads 5–8)
-    const banked = /\b(mixstream|mobile)\b/.test(document.getElementById('rig').className);
+    const banked = /\b(mixstream|mobile|cdj)\b/.test(document.getElementById('rig').className);
     deck.bank = banked && deck.mode === m.dataset.mode ? 1 - (deck.bank || 0) : 0;
     deck.mode = m.dataset.mode;
     $('pads').classList.toggle('bank-1', deck.bank === 1);
@@ -3248,6 +3302,7 @@ const KNOB_NAMES = {
   mixstream: { trim: 'LEVEL', high: 'TREBLE', low: 'BASS', filter: 'FILTER', master: 'MAIN' },
   flx4: { trim: 'TRIM', high: 'HI', low: 'LOW', filter: 'CFX', master: 'MASTER LEVEL' },
   flx2: { trim: 'TRIM', high: 'HI', low: 'LOW', filter: 'CFX', master: 'MASTER' },
+  cdj: { trim: 'TRIM', high: 'HI', low: 'LOW', filter: 'COLOR', master: 'MASTER' },
 };
 // Some controls sit somewhere else on a given unit, so they move into place for that layout and back for Classic:
 // on the Mixstream Pro the FILTER knobs go to the decks' inner top corners and MAIN to deck 2's top right;
@@ -3272,7 +3327,9 @@ function setModel(m) {
   if (!KNOB_NAMES[m]) m = 'classic';
   modelSel.value = m;
   const shown = wideMq.matches ? m : 'mobile';
-  for (const c of ['mixstream', 'flx4', 'flx2', 'mobile']) rigEl.classList.toggle(c, shown === c);
+  for (const c of ['mixstream', 'flx4', 'flx2', 'mobile', 'cdj']) rigEl.classList.toggle(c, shown === c);
+  // CDJ hot cue buttons are the HOT CUE pad mode, A–D or E–H by BANK
+  if (shown === 'cdj') document.querySelectorAll('.mode[data-mode="hot"]:not(.on)').forEach(b => b.click());
   for (const d of Object.values(decks)) d.modePick = false;
   document.querySelectorAll('.pads').forEach(p => p.classList.remove('picking'));
   // Put everything home last-first (each element's old next sibling must be back before it), then move for this layout
@@ -3762,7 +3819,7 @@ function frame() {
   }
   strobe(loudest.beatPos, loudest.mix);
   phaseMeter();
-  if (rigEl.classList.contains('mixstream') || rigEl.classList.contains('mobile')) msScreen();
+  if (/\b(mixstream|mobile|cdj)\b/.test(rigEl.className)) msScreen();
   if (flx.output) flxLights(now);
   meter(masterVu, masterMeter);
   const ka = decks.a.heardKey(), kb = decks.b.heardKey();
