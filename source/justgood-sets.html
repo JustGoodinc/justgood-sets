@@ -1605,7 +1605,12 @@ function fitBeats(mono, sr, guess) {
     }
     return best;
   };
-  const coarse = search(guess, 0.6, 0.05), fine = search(coarse.bpm, 0.05, 0.005);
+  const coarse = search(guess, 0.6, 0.05), measured = search(coarse.bpm, 0.05, 0.005);
+  // Nearly every track is produced at a whole-number tempo, and readings like 127.98 are measuring error. Use the
+  // whole number when its grid fits the beats as well; a tempo that really is fractional (127.5, a live drummer)
+  // drifts off the whole-number grid within a few bars, scores lower and keeps its decimals.
+  const whole = Math.round(measured.bpm), w = Math.abs(measured.bpm - whole) <= .3 ? search(whole, 0, 1) : null;
+  const fine = w && w.sc >= measured.sc * .97 ? w : measured;
   const p = fps * 60 / fine.bpm, strength = [];
   for (let x = fine.ph; x < n; x += p) {
     let m = 0;
