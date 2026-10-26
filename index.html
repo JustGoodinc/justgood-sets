@@ -1140,7 +1140,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
       <article role="tabpanel" data-topic="decks">
         <h3>Decks and transport</h3>
         <dl>
-          <dt>Keyboard</dt><dd>Deck 1: left Ctrl is CUE and left Shift is PLAY. Deck 2: right Ctrl is CUE and right Shift is PLAY. CUE behaves like the button (hold to preview, let go to return), and pressing PLAY while holding CUE keeps the track playing. The keys do nothing while you're typing in a search box. Avoid Ctrl shortcuts such as Ctrl+F5 mid-set: the Ctrl press counts as CUE.</dd>
+          <dt>Keyboard</dt><dd>Deck 1: left Ctrl is CUE, left Shift is PLAY, and Z X C V are hot cues A–D. Deck 2: right Ctrl is CUE, right Shift is PLAY, and M , . / are hot cues A–D. A hot cue key sets the cue where the track is if it is empty, or jumps to it if it is set; clear cues with SHIFT on the pads. CUE behaves like the button (hold to preview, let go to return), and pressing PLAY while holding CUE keeps the track playing. The keys do nothing while you're typing in a search box. Avoid Ctrl shortcuts such as Ctrl+F5 mid-set: the Ctrl press counts as CUE.</dd>
           <dt>PLAY</dt><dd>Starts and pauses the deck.</dd>
           <dt>CUE</dt><dd>While playing: jumps back to the cue point and stops. Paused on the cue point: hold to preview, let go to return. Paused anywhere else: sets the cue point there. The amber triangle on the waveform marks it.</dd>
           <dt>CUE → PLAY</dt><dd>Hold CUE to preview, slide onto PLAY (it lights up) and let go to keep the track playing.</dd>
@@ -3282,9 +3282,21 @@ function renderPads(deck, u) {
 // Press PLAY while holding CUE and the track keeps playing when CUE is let go, as on a CDJ.
 // Ignored while typing in a box, so capital letters in a search never start a deck.
 const KEYS = { ControlLeft: ['a', 'cue'], ShiftLeft: ['a', 'play'], ControlRight: ['b', 'cue'], ShiftRight: ['b', 'play'] };
+// Hot cues A–D: Z X C V on deck 1, M , . / on deck 2 (by key position, so other keyboard layouts match).
+// An empty cue is set where the track is; a set one jumps there, whatever mode the pads are in.
+const HOT_KEYS = { KeyZ: ['a', 0], KeyX: ['a', 1], KeyC: ['a', 2], KeyV: ['a', 3], KeyM: ['b', 0], Comma: ['b', 1], Period: ['b', 2], Slash: ['b', 3] };
 const cueHeld = { a: false, b: false };
 const typing = e => e.target.closest?.('input:not([type=range]):not([type=checkbox]):not([type=radio]), textarea, select, [contenteditable=""], [contenteditable="true"]');
 document.addEventListener('keydown', e => {
+  const h = HOT_KEYS[e.code];
+  if (h && !e.repeat && !e.ctrlKey && !e.altKey && !e.metaKey && !typing(e)) {
+    const deck = decks[h[0]], i = h[1];
+    e.preventDefault(); // "/" opens quick find in Firefox
+    ctx.resume();
+    if (deck.hot[i] == null) { if (deck.buffer) deck.hot[i] = deck.position(); }
+    else deck.seek(deck.hot[i]);
+    return;
+  }
   const k = KEYS[e.code];
   if (!k || e.repeat || typing(e)) return;
   const [d, what] = k, deck = decks[d];
