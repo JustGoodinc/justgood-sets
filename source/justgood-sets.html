@@ -597,6 +597,11 @@ body:has(.rig.mobile) .strips { display: none; } /* each deck panel shows its ow
 .libdlg { box-sizing: border-box; width: min(1100px, calc(100vw - 32px)); height: min(780px, calc(100vh - 48px)); padding: 0; border: 1px solid var(--edge); border-radius: 14px; background: var(--chassis); color: var(--ink); box-shadow: 0 30px 80px rgb(0 0 0 / .6); }
 .libdlg::backdrop { background: rgb(8 6 20 / .72); }
 .libdlg[open] { display: grid; }
+.btn.rec { font-variant-numeric: tabular-nums; }
+.btn.rec[data-state="on"] { color: #fff; background: #d6263b; border-color: #ff5a6c; animation: rec-pulse 1.2s ease-in-out infinite; }
+.btn.rec[data-state="ready"] { color: var(--ok); border-color: var(--ok); }
+@keyframes rec-pulse { 50% { box-shadow: 0 0 16px #ff3b52; } }
+@media (prefers-reduced-motion: reduce) { .btn.rec[data-state="on"] { animation: none; } }
 .library.plan { grid-template-rows: auto auto auto auto minmax(220px, 1fr) auto; overflow: auto; }
 .plan-shapes { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
 .plan-q { display: grid; gap: 10px; }
@@ -814,6 +819,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
     <button class="btn" id="flx-connect" title="Connect a Pioneer DDJ-FLX4 (Chrome or Edge on a computer)">CONNECT</button>
     <button class="btn" data-library="" aria-haspopup="dialog">LIBRARY</button>
     <button class="btn" id="plan-open" aria-haspopup="dialog">PLAN SET</button>
+    <button class="btn rec" id="rec" title="Record what the crowd hears, then save it as an audio file">● REC</button>
     <button class="btn on" id="wheel-toggle" aria-pressed="true" title="Show or hide the Camelot wheel">WHEEL</button>
     <button class="btn" data-help="start" aria-haspopup="dialog">HELP</button>
   </div>
@@ -911,6 +917,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
         <p>Two demo loops are loaded when the page opens, so you can press PLAY on deck 1 straight away.</p>
         <dl>
           <dt>Load a track</dt><dd>Press LOAD on a deck to open the library for that deck, then double-click a track or press its 1 or 2. OPEN AUDIO FILE in the library picks a single file instead. You can also drop a file onto a deck or its track bar. MP3, WAV, OGG, M4A and FLAC work in most browsers.</dd>
+          <dt>Record your mix</dt><dd>Press ● REC at the top of the page to record exactly what the crowd hears, after the master knob. Press it again to stop, then SAVE MIX to keep the recording. On a phone that opens the share sheet, so you can Save to Files or AirDrop it. Chrome and Edge save WebM files; Safari saves MP4 audio.</dd>
           <dt>Use your library</dt><dd>Open it with LIBRARY at the top of the page or LOAD on a deck. Link a rekordbox or Engine DJ USB, import a rekordbox XML export or link a music folder there. See <button class="help-link" data-help="library">Library, rekordbox and Engine</button>.</dd>
           <dt>Mix two tracks</dt><dd>Play deck 1, load deck 2, press SYNC on deck 2, line up the beats in the stacked waveform, then bring it in with the crossfader.</dd>
           <dt>Knobs</dt><dd>Drag up or down, scroll, or use the arrow keys. Double-click returns a knob to its centre.</dd>
@@ -2317,6 +2324,52 @@ planSave.addEventListener('click', () => {
   renderPlanLists();
   planNote.textContent = `Saved as "${name}" in the library's playlist menu.`;
 });
+
+// ---- Record the mix: everything after the master knob, as the crowd hears it ----
+// REC starts, press again to stop, then SAVE MIX hands over the file (a fresh tap, which iPhone needs to save or share)
+const recBtn = document.getElementById('rec');
+let recorder = null, recBlob = null, recTimer = 0, recTap = null;
+const recType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find(t => window.MediaRecorder?.isTypeSupported(t));
+function recLabel(text, state) { recBtn.textContent = text; recBtn.dataset.state = state; }
+recBtn.addEventListener('click', async () => {
+  if (recBlob) return saveMix();
+  if (recorder) { recorder.stop(); return; }
+  if (!window.MediaRecorder || !recType) { statusEl.textContent = "This browser can't record audio. Try Chrome, Edge or Safari."; return; }
+  ctx.resume();
+  if (!recTap) { recTap = ctx.createMediaStreamDestination(); masterGain.connect(recTap); }
+  const chunks = [], t0 = performance.now();
+  recorder = new MediaRecorder(recTap.stream, { mimeType: recType, audioBitsPerSecond: 256000 });
+  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  recorder.onstop = () => {
+    clearInterval(recTimer);
+    recorder = null;
+    recBlob = new Blob(chunks, { type: recType.split(';')[0] });
+    recBlob.secs = (performance.now() - t0) / 1000;
+    recLabel('⤓ SAVE MIX', 'ready');
+  };
+  recorder.start(1000); // a chunk a second, so a long set never sits in one buffer
+  recLabel('■ 0:00', 'on');
+  recTimer = setInterval(() => { recBtn.textContent = '■ ' + fmt((performance.now() - t0) / 1000).slice(0, -2); }, 500);
+});
+async function saveMix() {
+  const d = new Date(), pad = n => String(n).padStart(2, '0');
+  const name = `JustGood Sets mix ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}-${pad(d.getMinutes())}.${recType.includes('mp4') ? 'mp4' : 'webm'}`;
+  const file = new File([recBlob], name, { type: recBlob.type });
+  try {
+    const dl = window.claude ? await claude.use('downloads') : null;
+    if (dl) await dl.save({ filename: name, data: recBlob });
+    else if (matchMedia('(pointer: coarse)').matches && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file] }); // phone: Save to Files, AirDrop…
+    else { const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000); }
+  } catch (e) {
+    if (e?.name === 'AbortError' || e?.code === 'declined') return; // closed the share sheet or said no: keep the mix for another try
+    statusEl.textContent = "Couldn't save the mix here. Press SAVE MIX to try again.";
+    return;
+  }
+  statusEl.textContent = `Saved ${name} (${fmt(recBlob.secs).slice(0, -2)}).`;
+  recBlob = null;
+  recLabel('● REC', '');
+}
+addEventListener('beforeunload', e => { if (recorder || recBlob) e.preventDefault(); }); // don't lose a mix to a reload
 
 // Camelot wheel on or off; remembered in this browser
 const wheelBtn = document.getElementById('wheel-toggle'), stackEl = document.querySelector('.stack');
