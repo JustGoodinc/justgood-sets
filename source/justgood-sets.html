@@ -870,7 +870,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
 @media (max-width: 700px) {
   .bar-btns {
     position: fixed; z-index: 30; inset: auto 0 0; margin: 0; gap: 2px;
-    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr);
     padding: 6px max(10px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
     background: color-mix(in srgb, var(--room) 80%, transparent);
     backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
@@ -907,6 +907,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
     <div class="tb-group">
       <button class="btn" data-library="" aria-haspopup="dialog"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11M4 11h11M4 16h7"/><circle cx="17.5" cy="17" r="2.5"/><path d="M20 17V7l-3 1"/></svg><span>LIBRARY</span></button>
       <button class="btn" id="plan-open" aria-haspopup="dialog"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19l5-6 4 3 8-10"/><path d="M15 6h5v5"/></svg><span>PLAN SET</span></button>
+      <button class="btn" id="auto-btn" aria-pressed="false" title="Play the planned set by itself: beatmatched, phrase-aligned mixes with a bass swap"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 0 1 12-4.9M19 12a7 7 0 0 1-12 4.9"/><path d="M17 3v4h-4M7 21v-4h4"/><path d="M10.5 9.5v5l4-2.5z" class="ti-fill"/></svg><span>AUTO DJ</span></button>
     </div>
     <div class="tb-group">
       <button class="btn rec" id="rec" title="Record what the crowd hears, then save it as an MP3"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.5" class="ti-fill"/><circle cx="12" cy="12" r="9"/></svg><span>REC</span></button>
@@ -982,7 +983,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
   </div>
   <p class="lib-note" id="plan-note">Add songs or open your library, then press PLAN SET. Songs without a BPM or key are analysed first.</p>
   <div class="lib-table"><table><thead><tr><th>#</th><th>LOAD</th><th>TRACK · HOW IT MIXES IN</th><th>BPM</th><th>KEY</th></tr></thead><tbody id="plan-rows"></tbody></table></div>
-  <div class="lib-bar"><button class="btn" id="plan-save" disabled>SAVE AS PLAYLIST</button></div>
+  <div class="lib-bar"><button class="btn on" id="plan-auto" disabled>▶ AUTO DJ THIS SET</button><button class="btn" id="plan-save" disabled>SAVE AS PLAYLIST</button></div>
 </section>
 </dialog>
 <p class="hint"><span id="engine">Loading the BPM and key analyser…</span></p>
@@ -1091,6 +1092,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
           <dt>✓ PLAYED</dt><dd>Tracks you've played from the library for at least 10 seconds this session. They're dimmed so you don't play them twice.</dd>
           <dt>Sort and search</dt><dd>Click a column heading to sort, again to reverse. KEY sorts round the Camelot wheel. Search matches title, artist, key and BPM.</dd>
           <dt>Plan a set</dt><dd>PLAN SET at the top of the page builds a running order. Add songs from your phone or computer, or use any library playlist, then answer three questions: what kind of set (Ramp up, Mountain, Waves, Steady groove or Wind down), how long, and whether key jumps of two steps are allowed. Songs without a BPM or key are analysed first. Each row says how it mixes in from the one before. Press 1 or 2 to load it, or SAVE AS PLAYLIST to keep the order in the library.</dd>
+          <dt>Auto DJ</dt><dd>Plan a set, then press ▶ AUTO DJ THIS SET (or AUTO DJ in the toolbar). It plays the set in order by itself. Near the end of each track it waits for an 8-bar phrase, syncs the next track's tempo, drops its bar 1 on the beat and crossfades over 16 bars, swapping the bass halfway so two kick drums never clash. Between mixes the playing track eases back to its own tempo. Press AUTO DJ again to stop: both decks keep playing and are yours. Press REC first to record the whole set.</dd>
           <dt>Read-only</dt><dd>Changes made here, such as cues and grid edits, are never written back to rekordbox or Engine DJ.</dd>
         </dl>
       </article>
@@ -2369,7 +2371,7 @@ function renderPlan(info) {
       + `<td class="num">${t.bpm.toFixed(1)}</td><td class="num">${t.key ? t.key.code : '—'}</td></tr>`;
   }).join('');
   if (info) planNote.textContent = info;
-  planSave.disabled = !plan.length;
+  planSave.disabled = document.getElementById('plan-auto').disabled = !plan.length;
 }
 planRows.addEventListener('click', e => { const b = e.target.closest('button[data-deck]'); if (b) loadTrack(plan[+b.dataset.i], b.dataset.deck); });
 
@@ -2417,6 +2419,131 @@ planSave.addEventListener('click', () => {
   renderPlanLists();
   planNote.textContent = `Saved as "${name}" in the library's playlist menu.`;
 });
+
+// ---- Auto DJ: plays the planned set by itself, mixing like a DJ would ----
+// Each change starts on an 8-bar phrase near the end of the playing track: the next track is tempo-synced and
+// dropped on its bar 1 in phase, then a 16-bar crossfade with a bass swap halfway (only one kick drum at a time).
+// Between mixes the playing track eases back to its own tempo, so the set follows the planned BPM curve.
+const AUTO = { on: false, i: 0, live: 'a', next: -1, ready: false, startAt: null, mixLen: 0, mix: null, timer: 0 };
+const autoBtn = document.getElementById('auto-btn'), autoText = autoBtn.querySelector('span');
+const otherId = d => (d === 'a' ? 'b' : 'a');
+const knobTo = (d, key, v) => knobEl(d, key).setValue(v);
+
+function autoNextIndex(from) {
+  for (let i = from; i < plan.length; i++) if (fileFor(plan[i])) return i;
+  return -1;
+}
+async function autoLoad(d, i) {
+  AUTO.ready = false; AUTO.next = i; AUTO.startAt = null;
+  if (i < 0) return;
+  const tr = plan[i];
+  await readAnlz(tr).catch(() => {});
+  await loadFile(decks[d], fileFor(tr), tr);
+  if (!AUTO.on || AUTO.next !== i) return;
+  if (decks[d].meta === tr) AUTO.ready = true;
+  else return autoLoad(d, autoNextIndex(i + 1)); // couldn't read it: skip to the one after
+}
+
+// Where the mix starts in the playing track (file seconds): the last 8-bar phrase that leaves room for 16 bars
+function mixPoint(L) {
+  const now = L.position();
+  if (!L.bpm || L.grid == null) { AUTO.mixLen = Math.min(16, L.dur / 4); return Math.max(now, L.dur - AUTO.mixLen - 1); }
+  const bar = 240 / L.bpm, phrase = 8 * bar;
+  AUTO.mixLen = Math.min(16 * bar, (L.dur - L.grid) / 3);
+  const k = Math.floor((L.dur - bar - AUTO.mixLen - L.grid) / phrase);
+  let at = L.grid + Math.max(0, k) * phrase;
+  if (at < now) at = L.grid + Math.ceil((now - L.grid) / bar) * bar; // already past it: the next bar line
+  AUTO.mixLen = Math.max(bar, Math.min(AUTO.mixLen, L.dur - at - 0.5));
+  return at;
+}
+
+function beginMix(L, N) {
+  // Tempo: match the playing track, counting half and double time
+  if (L.bpm && N.bpm) {
+    const target = L.effectiveBpm();
+    const t = [1, 2, .5].map(f => (target / (N.bpm * f) - 1) * 100).reduce((x, y) => Math.abs(y) < Math.abs(x) ? y : x);
+    N.setTempo(clamp(t, -16, 16));
+  }
+  // Phase: N's bar 1 lands where L's phrase started, plus however far L has moved on since
+  const elapsed = (L.position() - AUTO.startAt) / L.rate;
+  const at = N.grid != null ? N.grid + elapsed * N.rate : 0;
+  const fl = document.getElementById('fader-' + L.id), fn = document.getElementById('fader-' + N.id);
+  flxSlide(fn, fl.value); // same channel level as the track it replaces
+  knobTo(N.id, 'low', 0); // incoming bass out until the swap
+  N.seek(at);
+  N.play();
+  AUTO.mix = { t0: ctx.currentTime, secs: AUTO.mixLen / L.rate, swapped: false, from: L.id };
+}
+
+function autoTick() {
+  if (!AUTO.on) return;
+  const L = decks[AUTO.live], N = decks[otherId(AUTO.live)];
+  if (AUTO.mix) {
+    const p = Math.min(1, (ctx.currentTime - AUTO.mix.t0) / AUTO.mix.secs), x = AUTO.mix.from === 'a' ? p : 1 - p;
+    flxSlide(xfade, x.toFixed(3));
+    if (p >= .5 && !AUTO.mix.swapped) { AUTO.mix.swapped = true; knobTo(L.id, 'low', 0); knobTo(N.id, 'low', .5); }
+    if (p >= 1) {
+      L.stop();
+      knobTo(L.id, 'low', .5);
+      AUTO.mix = null; AUTO.live = N.id; AUTO.i = AUTO.next;
+      autoLoad(L.id, autoNextIndex(AUTO.i + 1)); // the free deck takes the track after
+    }
+    return autoShow();
+  }
+  if (!L.playing) {
+    // The track ran out before the next was ready (or the set is over)
+    if (AUTO.ready) { AUTO.startAt = L.position(); AUTO.mixLen = 240 / (L.bpm || 120); beginMix(L, N); return; }
+    if (AUTO.next < 0) return stopAuto(`Auto DJ finished the set: ${AUTO.i + 1} tracks.`);
+    return autoShow();
+  }
+  if (Math.abs(L.tempo) > .02) L.setTempo(L.tempo * .997); // ease home, a few seconds per percent
+  if (AUTO.ready) {
+    AUTO.startAt ??= mixPoint(L);
+    if (L.position() >= AUTO.startAt) beginMix(L, N);
+  }
+  autoShow();
+}
+
+function autoShow() {
+  autoText.textContent = `AUTO ${AUTO.i + 1}/${plan.length}`;
+  const L = decks[AUTO.live];
+  let s = `Auto DJ · ${AUTO.i + 1} of ${plan.length}: ${L.title}`;
+  if (AUTO.mix) s += ` · mixing into ${decks[otherId(AUTO.live)].title}`;
+  else if (AUTO.ready && AUTO.startAt != null) s += ` · next mix in ${fmt(Math.max(0, (AUTO.startAt - L.position()) / L.rate)).slice(0, -2)}`;
+  else if (AUTO.next >= 0) s += ' · getting the next track ready';
+  else s += ' · last track';
+  statusEl.textContent = s;
+}
+
+async function startAuto() {
+  const first = autoNextIndex(0);
+  if (first < 0) { renderPlanLists(); planDlg.showModal(); planNote.textContent = 'Plan a set first (songs need to be linked to files), then press AUTO DJ.'; return; }
+  ctx.resume();
+  planDlg.close();
+  Object.assign(AUTO, { on: true, i: first, live: 'a', mix: null });
+  autoBtn.classList.add('on'); autoBtn.setAttribute('aria-pressed', 'true');
+  for (const d of Object.values(decks)) { d.stop(); d.setTempo(0); }
+  for (const d of ['a', 'b']) knobTo(d, 'low', .5);
+  flxSlide(xfade, 0);
+  statusEl.textContent = 'Auto DJ · loading the first track…';
+  await autoLoad('a', first);
+  if (!AUTO.on) return;
+  AUTO.ready = false;
+  decks.a.seek(decks.a.cue || 0);
+  decks.a.play();
+  AUTO.timer = setInterval(autoTick, 100);
+  autoLoad('b', autoNextIndex(first + 1));
+}
+function stopAuto(msg) {
+  clearInterval(AUTO.timer);
+  if (AUTO.mix) { const L = AUTO.mix.from; knobTo(L, 'low', .5); knobTo(otherId(L), 'low', .5); } // leave both decks playing as they are
+  Object.assign(AUTO, { on: false, mix: null, ready: false });
+  autoBtn.classList.remove('on'); autoBtn.setAttribute('aria-pressed', 'false');
+  autoText.textContent = 'AUTO DJ';
+  statusEl.textContent = msg || 'Auto DJ stopped. The decks are yours.';
+}
+autoBtn.addEventListener('click', () => (AUTO.on ? stopAuto() : startAuto()));
+document.getElementById('plan-auto').addEventListener('click', startAuto);
 
 // ---- Record the mix: everything after the master knob, as the crowd hears it ----
 // REC starts, press again to stop, then SAVE MIX hands over the file (a fresh tap, which iPhone needs to save or share).
@@ -2575,7 +2702,7 @@ for (const d of ['a', 'b']) {
   u.zoom.addEventListener('pointermove', e => { if (grab) deck.seek(grab.pos - (e.clientX - grab.x) * WINDOW * deck.rate / u.zoom.clientWidth); });
   for (const ev of ['pointerup', 'pointercancel']) u.zoom.addEventListener(ev, () => { if (grab?.wasPlaying) deck.play(); grab = null; });
 
-  const setTempo = v => { deck.tempo = v; u.tempo.value = v; u.tempoval.value = `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; deck.setRate(); };
+  const setTempo = deck.setTempo = v => { deck.tempo = v; u.tempo.value = v; u.tempoval.value = `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; deck.setRate(); }; // Auto DJ moves it too
   u.tempo.addEventListener('input', () => setTempo(+u.tempo.value));
   u.tempo.addEventListener('dblclick', () => setTempo(0));
   // Precision buttons: move the tempo to the next exact 0.01 BPM (0.1 with Shift); hold to repeat
