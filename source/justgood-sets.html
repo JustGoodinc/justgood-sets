@@ -917,7 +917,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
         <p>Two demo loops are loaded when the page opens, so you can press PLAY on deck 1 straight away.</p>
         <dl>
           <dt>Load a track</dt><dd>Press LOAD on a deck to open the library for that deck, then double-click a track or press its 1 or 2. OPEN AUDIO FILE in the library picks a single file instead. You can also drop a file onto a deck or its track bar. MP3, WAV, OGG, M4A and FLAC work in most browsers.</dd>
-          <dt>Record your mix</dt><dd>Press ● REC at the top of the page to record exactly what the crowd hears, after the master knob. Press it again to stop, then SAVE MIX to keep the recording. On a phone that opens the share sheet, so you can Save to Files or AirDrop it. Chrome and Edge save WebM files; Safari saves MP4 audio.</dd>
+          <dt>Record your mix</dt><dd>Press ● REC at the top of the page to record exactly what the crowd hears, after the master knob. Press it again to stop, then SAVE MIX to keep the recording. On a phone that opens the share sheet, so you can Save to Files or AirDrop it. Mixes save as 320 kbps MP3. Inside claude.ai, which doesn't allow MP3 downloads, they save as WebM (Chrome, Edge) or MP4 audio (Safari).</dd>
           <dt>Use your library</dt><dd>Open it with LIBRARY at the top of the page or LOAD on a deck. Link a rekordbox or Engine DJ USB, import a rekordbox XML export or link a music folder there. See <button class="help-link" data-help="library">Library, rekordbox and Engine</button>.</dd>
           <dt>Mix two tracks</dt><dd>Play deck 1, load deck 2, press SYNC on deck 2, line up the beats in the stacked waveform, then bring it in with the crossfader.</dd>
           <dt>Knobs</dt><dd>Drag up or down, scroll, or use the arrow keys. Double-click returns a knob to its centre.</dd>
@@ -2326,34 +2326,67 @@ planSave.addEventListener('click', () => {
 });
 
 // ---- Record the mix: everything after the master knob, as the crowd hears it ----
-// REC starts, press again to stop, then SAVE MIX hands over the file (a fresh tap, which iPhone needs to save or share)
+// REC starts, press again to stop, then SAVE MIX hands over the file (a fresh tap, which iPhone needs to save or share).
+// Saved as a 320 kbps MP3, encoded as it records (LAME via lamejs, LGPL). claude.ai's downloads don't allow .mp3,
+// so there, or if the encoder can't load, the browser's own recorder makes WebM (Chrome, Edge) or MP4 audio (Safari).
 const recBtn = document.getElementById('rec');
-let recorder = null, recBlob = null, recTimer = 0, recTap = null;
+let recorder = null, recBlob = null, recTimer = 0, recTap = null, lame = null;
 const recType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find(t => window.MediaRecorder?.isTypeSupported(t));
 function recLabel(text, state) { recBtn.textContent = text; recBtn.dataset.state = state; }
+const loadLame = () => lame ??= new Promise((res, rej) => {
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js';
+  s.onload = () => res(window.lamejs); s.onerror = rej;
+  document.head.append(s);
+}).catch(() => (lame = null));
+
+// MP3: take the master output in blocks and feed LAME as it plays, so only the small MP3 is kept in memory
+function mp3Recorder(lamejs) {
+  const enc = new lamejs.Mp3Encoder(2, ctx.sampleRate, 320), parts = [];
+  // ponytail: ScriptProcessor on the main thread (every browser, Safari included); an AudioWorklet if it ever glitches
+  const tap = ctx.createScriptProcessor(4096, 2, 2), mute = ctx.createGain();
+  mute.gain.value = 0;
+  const pcm = f => { const out = new Int16Array(f.length); for (let i = 0; i < f.length; i++) out[i] = Math.max(-1, Math.min(1, f[i])) * 32767; return out; };
+  tap.onaudioprocess = e => {
+    const mp3 = enc.encodeBuffer(pcm(e.inputBuffer.getChannelData(0)), pcm(e.inputBuffer.getChannelData(1)));
+    if (mp3.length) parts.push(mp3);
+  };
+  masterGain.connect(tap).connect(mute).connect(ctx.destination); // a ScriptProcessor only runs while connected to the output
+  return {
+    stop(done) {
+      masterGain.disconnect(tap); tap.disconnect(); tap.onaudioprocess = null;
+      parts.push(enc.flush());
+      done(new Blob(parts, { type: 'audio/mpeg' }), 'mp3');
+    },
+  };
+}
+function browserRecorder() {
+  if (!recTap) { recTap = ctx.createMediaStreamDestination(); masterGain.connect(recTap); }
+  const chunks = [], r = new MediaRecorder(recTap.stream, { mimeType: recType, audioBitsPerSecond: 256000 });
+  r.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  r.start(1000); // a chunk a second, so a long set never sits in one buffer
+  return { stop(done) { r.onstop = () => done(new Blob(chunks, { type: recType.split(';')[0] }), recType.includes('mp4') ? 'mp4' : 'webm'); r.stop(); } };
+}
+
 recBtn.addEventListener('click', async () => {
   if (recBlob) return saveMix();
-  if (recorder) { recorder.stop(); return; }
-  if (!window.MediaRecorder || !recType) { statusEl.textContent = "This browser can't record audio. Try Chrome, Edge or Safari."; return; }
+  if (recBtn.dataset.state === 'on' && (!recorder || recorder.stopping)) return; // still starting or finishing
+  if (recorder) {
+    recorder.stopping = true;
+    recorder.stop((blob, ext) => { recBlob = Object.assign(blob, { ext, secs: (performance.now() - recorder.t0) / 1000 }); recorder = null; clearInterval(recTimer); recLabel('⤓ SAVE MIX', 'ready'); });
+    return;
+  }
   ctx.resume();
-  if (!recTap) { recTap = ctx.createMediaStreamDestination(); masterGain.connect(recTap); }
-  const chunks = [], t0 = performance.now();
-  recorder = new MediaRecorder(recTap.stream, { mimeType: recType, audioBitsPerSecond: 256000 });
-  recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-  recorder.onstop = () => {
-    clearInterval(recTimer);
-    recorder = null;
-    recBlob = new Blob(chunks, { type: recType.split(';')[0] });
-    recBlob.secs = (performance.now() - t0) / 1000;
-    recLabel('⤓ SAVE MIX', 'ready');
-  };
-  recorder.start(1000); // a chunk a second, so a long set never sits in one buffer
+  recLabel('…', 'on');
+  const lamejs = window.claude ? null : await loadLame();
+  if (!lamejs && (!window.MediaRecorder || !recType)) { recLabel('● REC', ''); statusEl.textContent = "This browser can't record audio. Try Chrome, Edge or Safari."; return; }
+  recorder = Object.assign(lamejs ? mp3Recorder(lamejs) : browserRecorder(), { t0: performance.now() });
   recLabel('■ 0:00', 'on');
-  recTimer = setInterval(() => { recBtn.textContent = '■ ' + fmt((performance.now() - t0) / 1000).slice(0, -2); }, 500);
+  recTimer = setInterval(() => { recBtn.textContent = '■ ' + fmt((performance.now() - recorder.t0) / 1000).slice(0, -2); }, 500);
 });
 async function saveMix() {
   const d = new Date(), pad = n => String(n).padStart(2, '0');
-  const name = `JustGood Sets mix ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}-${pad(d.getMinutes())}.${recType.includes('mp4') ? 'mp4' : 'webm'}`;
+  const name = `JustGood Sets mix ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}-${pad(d.getMinutes())}.${recBlob.ext}`;
   const file = new File([recBlob], name, { type: recBlob.type });
   try {
     const dl = window.claude ? await claude.use('downloads') : null;
