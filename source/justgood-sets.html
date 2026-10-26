@@ -618,6 +618,16 @@ body:has(.rig.mobile) .strips { display: none; } /* each deck panel shows its ow
 .pick input:checked + span svg { stroke: var(--cue); }
 .pick input:focus-visible + span { outline: 2px solid var(--ink); outline-offset: 2px; }
 .plan-q #plan-go { justify-self: start; padding: 10px 22px; }
+.library.check { display: flex; flex-direction: column; }
+.check .lib-table { flex: 1; min-height: 200px; }
+.check-sum { display: flex; flex-wrap: wrap; gap: 8px; }
+.check-sum div { flex: 1 1 160px; padding: 8px 10px; border: 1px solid var(--edge); border-radius: 10px; background: var(--well); font-size: 12px; color: var(--muted); }
+.check-sum b { display: block; font-family: var(--f-data); font-size: 18px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.check td { white-space: normal; max-width: none; font-family: var(--f-data); font-size: 12px; }
+.check td:first-child { font-family: var(--f-label); font-size: 13px; overflow-wrap: anywhere; }
+.res-ok { color: var(--ok); }
+.res-warn { color: var(--cue); }
+.res-bad { color: var(--bar1); }
 .plan-chk { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .plan .lib-table table { min-width: 0; }
 .plan td:first-child { color: var(--muted); width: 2ch; }
@@ -949,8 +959,26 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
     <label class="btn">LINK FOLDER OR USB<input type="file" id="lib-dir" webkitdirectory multiple hidden></label>
     <select id="lib-list" aria-label="Playlist"></select>
     <input type="search" id="lib-search" placeholder="Search title, artist, key or BPM" aria-label="Search the library">
+    <button class="btn" id="check-open" title="Re-analyse this playlist here and compare with rekordbox or Engine DJ">CHECK ANALYSIS</button>
   </div>
   <div class="lib-table"><table><thead id="lib-head"><tr><th>LOAD</th><th><button data-sort="title">TITLE</button></th><th><button data-sort="artist">ARTIST</button></th><th><button data-sort="bpm">BPM</button></th><th><button data-sort="key">KEY</button></th><th><button data-sort="time">TIME</button></th></tr></thead><tbody id="lib-rows"></tbody></table></div>
+</section>
+</dialog>
+<dialog class="libdlg" id="checker" aria-labelledby="check-title">
+<section class="library plan check">
+  <div class="lib-top">
+    <h2 id="check-title">CHECK ANALYSIS</h2>
+    <span class="lib-target">Our BPM, key and bar 1 against rekordbox or Engine DJ</span>
+    <button class="btn" id="check-close">CLOSE</button>
+  </div>
+  <div class="lib-bar">
+    <span class="lib-note" id="check-from"></span>
+    <select id="check-count" aria-label="How many tracks"><option value="10">10 tracks</option><option value="25" selected>25 tracks</option><option value="50">50 tracks</option><option value="0">Every track</option></select>
+    <button class="btn on" id="check-go">START</button>
+  </div>
+  <p class="lib-note" id="check-note">Each track is analysed here from scratch, a few seconds each, and compared with what your DJ software worked out. Nothing in your library changes.</p>
+  <div class="check-sum" id="check-sum" hidden></div>
+  <div class="lib-table"><table><thead><tr><th>TRACK</th><th>BPM · THEIRS → OURS</th><th>KEY</th><th>BAR 1</th></tr></thead><tbody id="check-rows"></tbody></table></div>
 </section>
 </dialog>
 <dialog class="libdlg" id="planner" aria-labelledby="plan-title">
@@ -1092,6 +1120,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
           <dt>✓ PLAYED</dt><dd>Tracks you've played from the library for at least 10 seconds this session. They're dimmed so you don't play them twice.</dd>
           <dt>Sort and search</dt><dd>Click a column heading to sort, again to reverse. KEY sorts round the Camelot wheel. Search matches title, artist, key and BPM.</dd>
           <dt>Plan a set</dt><dd>PLAN SET at the top of the page builds a running order. Add songs from your phone or computer, or use any library playlist, then answer three questions: what kind of set (Ramp up, Mountain, Waves, Steady groove or Wind down), how long, and whether key jumps of two steps are allowed. Songs without a BPM or key are analysed first. Each row says how it mixes in from the one before. Press 1 or 2 to load it, or SAVE AS PLAYLIST to keep the order in the library.</dd>
+          <dt>Check analysis</dt><dd>In the library, pick a rekordbox or Engine DJ playlist and press CHECK ANALYSIS. Up to the number of tracks you choose are analysed here from scratch and compared with what your DJ software worked out: BPM (including half or double time), key (exact, a wheel neighbour, or wrong) and, with rekordbox beat grids, whether bar 1 lands on the same beat. Nothing in your library changes. It shows where this app's analysis agrees with yours and where it needs work.</dd>
           <dt>Auto DJ</dt><dd>Plan a set, then press ▶ AUTO DJ THIS SET (or AUTO DJ in the toolbar). It plays the set in order by itself. It reads each track's structure from its loudness, bar by bar, to find the intro and the outro, then picks a transition for each pair, shown in the status line. A blend syncs the tempos and lays the outgoing outro over the incoming intro (8 to 32 bars, as long as both allow), swapping the bass halfway so two kick drums never clash. A filter sweep is used when the keys clash: the outgoing track is high-passed away over 8 bars. An echo out is used when the tempos are over 8% apart or the next track has no intro: the outgoing track echoes for a bar and stops, and the next drops straight into its first full section. Between mixes the playing track eases back to its own tempo. Press AUTO DJ again to stop: both decks keep playing and are yours. Press REC first to record the whole set.</dd>
           <dt>Read-only</dt><dd>Changes made here, such as cues and grid edits, are never written back to rekordbox or Engine DJ.</dd>
         </dl>
@@ -1465,11 +1494,59 @@ async function analyse(buf, knownBpm) {
   if (!guess) return { bpm: null, grid: null, key };
   while (guess < 85) guess *= 2;
   while (guess > 175) guess /= 2;
-  return { ...fitBeats(mono, sr, guess), key };
+  const fit = fitBeats(mono, sr, guess);
+  return { ...fit, grid: fit.grid + downbeatPhase(mono, sr, fit.bpm, fit.grid) * 60 / fit.bpm, key };
+}
+
+// Which of the four beats is bar 1. Three things point to it across the whole track: the harmony changes on it,
+// the bass leans on it, and the snare or clap lands on 2 and 4. A slight lean toward the first beat (most DJ edits
+// start on a downbeat) breaks ties when the music gives no clue, such as a bare four-on-the-floor kick.
+function downbeatPhase(mono, sr, bpm, grid) {
+  const N = 4096, beat = 60 / bpm, bin = sr / N, half = N / 2;
+  const re = new Float64Array(N), im = new Float64Array(N), win = Float64Array.from({ length: N }, (_, j) => 0.5 - 0.5 * Math.cos(2 * Math.PI * j / N));
+  const spec = t => {
+    const a = Math.floor(t * sr), m = new Float64Array(half);
+    for (let j = 0; j < N; j++) { re[j] = (mono[a + j] || 0) * win[j]; im[j] = 0; }
+    fft(re, im);
+    for (let k = 0; k < half; k++) m[k] = Math.sqrt(re[k] * re[k] + im[k] * im[k]);
+    return m;
+  };
+  const pc = Int8Array.from({ length: half }, (_, k) => { const f = k * bin; return f < 60 || f > 2000 ? -1 : ((Math.round(12 * Math.log2(f / 440)) + 69) % 12 + 12) % 12; });
+  const lo = Math.round(120 / bin), h0 = Math.round(1500 / bin), h1 = Math.round(6000 / bin);
+  const L = [], H = [], C = [];
+  let prev = null;
+  for (let t = grid; t + beat < mono.length / sr; t += beat) {
+    const on = spec(t), body = spec(t + beat * 0.3); // the hit itself, then the notes ringing after it
+    let l = 0, h = 0;
+    for (let k = 1; k <= lo; k++) l += on[k];
+    for (let k = h0; k <= h1; k++) h += on[k];
+    const ch = new Float64Array(12);
+    for (let k = 1; k < half; k++) if (pc[k] >= 0) ch[pc[k]] += body[k];
+    let c = 0;
+    if (prev) {
+      let d = 0, a = 0, b = 0;
+      for (let i = 0; i < 12; i++) { d += ch[i] * prev[i]; a += ch[i] * ch[i]; b += prev[i] * prev[i]; }
+      c = 1 - d / (Math.sqrt(a * b) || 1);
+    }
+    L.push(l); H.push(h); C.push(c); prev = ch;
+  }
+  if (L.length < 16) return 0;
+  C[0] = C[4]; // the first beat has nothing before it to change from; don't let that count against it
+  const at = (arr, i0) => { let s = 0, n = 0; for (let i = i0; i < arr.length; i += 4) { s += arr[i]; n++; } return s / (n || 1); };
+  // Standardise each clue across the four beats, with a floor on its natural scale so faint random differences
+  // (a bare kick drum) can't outvote the lean toward the first beat: harmony change is a 0–1 distance (floor 0.05),
+  // bass and the clap pattern are measured against their average level (floors 10% and 15%)
+  const P = [0, 1, 2, 3], mean = v => (v[0] + v[1] + v[2] + v[3]) / 4;
+  const z = (v, floor) => { const m = mean(v), sd = Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / 4); return v.map(x => (x - m) / Math.max(sd, floor, 1e-9)); };
+  const Cv = P.map(p => at(C, p)), Lv = P.map(p => at(L, p)), Hm = mean(P.map(p => at(H, p))) || 1;
+  const harm = z(Cv, .05), bass = z(Lv, .1 * mean(Lv));
+  const snare = z(P.map(p => (at(H, p + 1) + at(H, p + 3) - at(H, p) - at(H, p + 2)) / (2 * Hm)), .15);
+  const score = P.map(p => harm[p] + .5 * bass[p] + .8 * snare[p] + (p === 0 ? .4 : 0));
+  return score.indexOf(Math.max(...score));
 }
 
 // Fixed-tempo beat grid: search tempo and phase together across the whole track at 1 ms resolution,
-// then call the first real beat bar 1 (DJ edits almost always start on a downbeat).
+// then mark the first real beat; downbeatPhase then decides which beat of the bar is the 1.
 function fitBeats(mono, sr, guess) {
   const fps = 1000, hop = sr / fps, n = Math.floor(mono.length / hop), E = new Float32Array(n), O = new Float32Array(n);
   for (let f = 0; f < n; f++) {
@@ -1863,7 +1940,7 @@ async function loadFile(deck, file, meta) {
     if (meta) { deck.hot = [...meta.hot]; deck.cue = deck.pos = meta.cue ?? 0; }
     const r = await done;
     // Keep what the analysis found on the library row, so the set planner and the next load don't redo it
-    if (meta && r) { meta.bpm ??= r.bpm; meta.grid ??= r.grid; meta.key ??= r.key; meta.time ||= buf.duration; }
+    if (meta && r) { keepAnalysis(meta, r); meta.time ||= buf.duration; }
     if (deck.buffer !== buf) return;
     if (meta?.key) deck.key = meta.key;
     statusEl.textContent = ''; // the header line only carries progress and problems
@@ -2377,10 +2454,12 @@ planRows.addEventListener('click', e => { const b = e.target.closest('button[dat
 
 async function analyseTrack(t) {
   const buf = await ctx.decodeAudioData(await fileFor(t).arrayBuffer());
-  const r = await analyse(buf, t.bpm);
+  keepAnalysis(t, await analyse(buf, t.bpm));
   t.time ||= buf.duration;
-  if (!t.bpm) Object.assign(t, { bpm: r.bpm, grid: r.grid });
-  t.key ||= r.key;
+}
+// Fill a library row's gaps from our analysis, remembering which values are ours (CHECK ANALYSIS compares only theirs)
+function keepAnalysis(t, r) {
+  for (const k of ['bpm', 'grid', 'key']) if (t[k] == null && r[k] != null) { t[k] = r[k]; (t.ours ??= new Set()).add(k); }
 }
 
 planGo.addEventListener('click', async () => {
@@ -2419,6 +2498,82 @@ planSave.addEventListener('click', () => {
   renderPlanLists();
   planNote.textContent = `Saved as "${name}" in the library's playlist menu.`;
 });
+
+// ---- Check analysis: re-analyse library tracks here and compare with what rekordbox or Engine DJ worked out ----
+const checkDlg = document.getElementById('checker'), checkGo = document.getElementById('check-go'), checkRows = document.getElementById('check-rows');
+const checkNote = document.getElementById('check-note'), checkSum = document.getElementById('check-sum');
+let checkStop = null;
+const theirs = (t, k) => (t.ours?.has(k) ? null : t[k]);
+const checkPool = () => (lib.lists[+libList.value || 0]?.tracks || []).filter(t => !t.file && (theirs(t, 'bpm') || theirs(t, 'key')) && fileFor(t));
+document.getElementById('check-open').addEventListener('click', () => {
+  const n = checkPool().length;
+  document.getElementById('check-from').textContent = n ? `${lib.lists[+libList.value || 0].name}: ${n} tracks to compare` : '';
+  if (!n) checkNote.textContent = 'This playlist has no tracks with BPM or key from rekordbox or Engine DJ that are linked to files. Link a rekordbox or Engine DJ USB (or import a rekordbox XML and link its music folder), pick a playlist, then try again.';
+  checkGo.disabled = !n;
+  checkDlg.showModal();
+});
+document.getElementById('check-close').addEventListener('click', () => checkDlg.close());
+checkDlg.addEventListener('click', e => { if (e.target === checkDlg) checkDlg.close(); });
+
+// One track's verdicts: theirs is the reference, ours is a fresh analysis that ignores theirs
+function compareAnalysis(ref, ours) {
+  const out = {};
+  if (ref.bpm && ours.bpm) {
+    const d = Math.abs(ours.bpm - ref.bpm), rel = d / ref.bpm, hd = [2, .5].some(f => Math.abs(ours.bpm / (ref.bpm * f) - 1) <= .01);
+    out.bpm = d <= .1 ? 'ok' : rel <= .01 ? 'close' : hd ? 'halfdouble' : 'off';
+  }
+  if (ref.key && ours.key) {
+    const step = Math.min((ref.key.num - ours.key.num + 12) % 12, (ours.key.num - ref.key.num + 12) % 12);
+    out.key = ref.key.code === ours.key.code ? 'ok' : step === 0 || (step === 1 && ref.key.mode === ours.key.mode) ? 'near' : 'off';
+  }
+  // Bar 1: only meaningful when both grids run at the same tempo
+  if (ref.grid != null && ours.grid != null && (out.bpm === 'ok' || out.bpm === 'close')) {
+    const beats = (ours.grid - ref.grid) / (60 / ref.bpm), whole = Math.round(beats);
+    out.bar = Math.abs(beats - whole) > .15 ? 'phase' : ((whole % 4) + 4) % 4; // 0 means bar 1 matches
+  }
+  return out;
+}
+
+checkGo.addEventListener('click', async () => {
+  if (checkStop) { checkStop.stopped = true; return; }
+  const want = +document.getElementById('check-count').value, pool = checkPool().slice(0, want || undefined);
+  const stop = checkStop = { stopped: false }, results = [];
+  checkGo.textContent = 'STOP';
+  checkRows.innerHTML = '';
+  const cell = (cls, text) => `<td class="${cls}">${text}</td>`;
+  for (const [i, t] of pool.entries()) {
+    if (stop.stopped) break;
+    checkNote.textContent = `Analysing ${i + 1} of ${pool.length}: ${t.title}…`;
+    try {
+      await readAnlz(t).catch(() => {}); // a rekordbox USB keeps its grid in the analysis files
+      const ref = { bpm: theirs(t, 'bpm'), key: theirs(t, 'key'), grid: theirs(t, 'grid') };
+      const buf = await ctx.decodeAudioData(await fileFor(t).arrayBuffer());
+      const ours = await analyse(buf, null), v = compareAnalysis(ref, ours);
+      results.push(v);
+      const bpmTxt = `${ref.bpm ? ref.bpm.toFixed(2) : '—'} → ${ours.bpm ? ours.bpm.toFixed(2) : '—'}`;
+      const keyTxt = `${ref.key?.code ?? '—'} → ${ours.key?.code ?? '—'}`;
+      const barTxt = v.bar == null ? '—' : v.bar === 0 ? 'matches' : v.bar === 'phase' ? 'between beats' : v.bar === 2 ? 'ours is 2 beats off (half a bar)' : `ours is 1 beat ${v.bar === 1 ? 'later' : 'earlier'}`;
+      const tone = { ok: 'res-ok', close: 'res-ok', near: 'res-warn', halfdouble: 'res-warn', off: 'res-bad', phase: 'res-bad' };
+      checkRows.insertAdjacentHTML('beforeend', `<tr>${cell('', esc([t.artist, t.title].filter(Boolean).join(' - ')))}${cell(tone[v.bpm] || '', bpmTxt + (v.bpm === 'halfdouble' ? ' (half/double)' : ''))}${cell(tone[v.key] || '', keyTxt + (v.key === 'near' ? ' (neighbour)' : ''))}${cell(v.bar === 0 ? 'res-ok' : v.bar == null ? '' : 'res-bad', barTxt)}</tr>`);
+    } catch {
+      checkRows.insertAdjacentHTML('beforeend', `<tr>${cell('', esc(t.title))}<td colspan="3" class="res-bad">Couldn't read this file</td></tr>`);
+    }
+    checkSummary(results);
+  }
+  checkStop = null;
+  checkGo.textContent = 'START';
+  checkNote.textContent = stop.stopped ? `Stopped after ${results.length} tracks.` : `Done: ${results.length} tracks compared.`;
+});
+
+function checkSummary(r) {
+  const count = (k, ...vals) => r.filter(x => vals.includes(x[k])).length, has = k => r.filter(x => x[k] != null).length;
+  const pct = (a, b) => (b ? Math.round(100 * a / b) + '%' : '—');
+  const nb = has('bpm'), nk = has('key'), nbar = has('bar');
+  checkSum.hidden = false;
+  checkSum.innerHTML = `<div><b>${pct(count('bpm', 'ok', 'close'), nb)}</b>BPM match (${count('bpm', 'ok', 'close')} of ${nb}) · ${count('bpm', 'halfdouble')} half/double · ${count('bpm', 'off')} off</div>`
+    + `<div><b>${pct(count('key', 'ok'), nk)}</b>Key exact (${count('key', 'ok')} of ${nk}) · ${count('key', 'near')} neighbour · ${count('key', 'off')} wrong</div>`
+    + `<div><b>${pct(count('bar', 0), nbar)}</b>Bar 1 matches (${count('bar', 0)} of ${nbar})${nbar ? '' : ': needs rekordbox beat grids'}</div>`;
+}
 
 // ---- Auto DJ: plays the planned set by itself, choosing each transition like a DJ would ----
 // Every track's structure is read from its loudness bar by bar: the intro (before the track gets going) and the
