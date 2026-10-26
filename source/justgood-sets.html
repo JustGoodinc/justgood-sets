@@ -1092,7 +1092,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
           <dt>✓ PLAYED</dt><dd>Tracks you've played from the library for at least 10 seconds this session. They're dimmed so you don't play them twice.</dd>
           <dt>Sort and search</dt><dd>Click a column heading to sort, again to reverse. KEY sorts round the Camelot wheel. Search matches title, artist, key and BPM.</dd>
           <dt>Plan a set</dt><dd>PLAN SET at the top of the page builds a running order. Add songs from your phone or computer, or use any library playlist, then answer three questions: what kind of set (Ramp up, Mountain, Waves, Steady groove or Wind down), how long, and whether key jumps of two steps are allowed. Songs without a BPM or key are analysed first. Each row says how it mixes in from the one before. Press 1 or 2 to load it, or SAVE AS PLAYLIST to keep the order in the library.</dd>
-          <dt>Auto DJ</dt><dd>Plan a set, then press ▶ AUTO DJ THIS SET (or AUTO DJ in the toolbar). It plays the set in order by itself. Near the end of each track it waits for an 8-bar phrase, syncs the next track's tempo, drops its bar 1 on the beat and crossfades over 16 bars, swapping the bass halfway so two kick drums never clash. Between mixes the playing track eases back to its own tempo. Press AUTO DJ again to stop: both decks keep playing and are yours. Press REC first to record the whole set.</dd>
+          <dt>Auto DJ</dt><dd>Plan a set, then press ▶ AUTO DJ THIS SET (or AUTO DJ in the toolbar). It plays the set in order by itself. It reads each track's structure from its loudness, bar by bar, to find the intro and the outro, then picks a transition for each pair, shown in the status line. A blend syncs the tempos and lays the outgoing outro over the incoming intro (8 to 32 bars, as long as both allow), swapping the bass halfway so two kick drums never clash. A filter sweep is used when the keys clash: the outgoing track is high-passed away over 8 bars. An echo out is used when the tempos are over 8% apart or the next track has no intro: the outgoing track echoes for a bar and stops, and the next drops straight into its first full section. Between mixes the playing track eases back to its own tempo. Press AUTO DJ again to stop: both decks keep playing and are yours. Press REC first to record the whole set.</dd>
           <dt>Read-only</dt><dd>Changes made here, such as cues and grid edits, are never written back to rekordbox or Engine DJ.</dd>
         </dl>
       </article>
@@ -2420,21 +2420,27 @@ planSave.addEventListener('click', () => {
   planNote.textContent = `Saved as "${name}" in the library's playlist menu.`;
 });
 
-// ---- Auto DJ: plays the planned set by itself, mixing like a DJ would ----
-// Each change starts on an 8-bar phrase near the end of the playing track: the next track is tempo-synced and
-// dropped on its bar 1 in phase, then a 16-bar crossfade with a bass swap halfway (only one kick drum at a time).
+// ---- Auto DJ: plays the planned set by itself, choosing each transition like a DJ would ----
+// Every track's structure is read from its loudness bar by bar: the intro (before the track gets going) and the
+// outro (where it winds down). Then each change picks a style for that pair:
+//  · BLEND: tempo-synced, phase-locked crossfade of the outgoing outro over the incoming intro (8–32 bars, as long
+//    as both allow), with a bass swap halfway so two kick drums never clash.
+//  · FILTER SWEEP: when the keys clash, 8 bars with the outgoing track high-passed away so the melodies don't fight.
+//  · ECHO OUT: when the tempos are too far apart to sync (over 8%), or the next track has no intro to blend over:
+//    the outgoing track echoes for one bar and stops, and the next one drops straight into its first full section.
 // Between mixes the playing track eases back to its own tempo, so the set follows the planned BPM curve.
-const AUTO = { on: false, i: 0, live: 'a', next: -1, ready: false, startAt: null, mixLen: 0, mix: null, timer: 0 };
+const AUTO = { on: false, i: 0, live: 'a', next: -1, ready: false, plan: null, mix: null, timer: 0 };
 const autoBtn = document.getElementById('auto-btn'), autoText = autoBtn.querySelector('span');
 const otherId = d => (d === 'a' ? 'b' : 'a');
 const knobTo = (d, key, v) => knobEl(d, key).setValue(v);
+const ECHO_FX = FX_NAMES.indexOf('ECHO');
 
 function autoNextIndex(from) {
   for (let i = from; i < plan.length; i++) if (fileFor(plan[i])) return i;
   return -1;
 }
 async function autoLoad(d, i) {
-  AUTO.ready = false; AUTO.next = i; AUTO.startAt = null;
+  AUTO.ready = false; AUTO.next = i; AUTO.plan = null;
   if (i < 0) return;
   const tr = plan[i];
   await readAnlz(tr).catch(() => {});
@@ -2444,72 +2450,132 @@ async function autoLoad(d, i) {
   else return autoLoad(d, autoNextIndex(i + 1)); // couldn't read it: skip to the one after
 }
 
-// Where the mix starts in the playing track (file seconds): the last 8-bar phrase that leaves room for 16 bars
-function mixPoint(L) {
-  const now = L.position();
-  if (!L.bpm || L.grid == null) { AUTO.mixLen = Math.min(16, L.dur / 4); return Math.max(now, L.dur - AUTO.mixLen - 1); }
-  const bar = 240 / L.bpm, phrase = 8 * bar;
-  AUTO.mixLen = Math.min(16 * bar, (L.dur - L.grid) / 3);
-  const k = Math.floor((L.dur - bar - AUTO.mixLen - L.grid) / phrase);
-  let at = L.grid + Math.max(0, k) * phrase;
-  if (at < now) at = L.grid + Math.ceil((now - L.grid) / bar) * bar; // already past it: the next bar line
-  AUTO.mixLen = Math.max(bar, Math.min(AUTO.mixLen, L.dur - at - 0.5));
-  return at;
+// Loudness per bar along the beat grid; "full" bars are those near the track's usual level
+function structure(d) {
+  if (d.struct?.buffer === d.buffer) return d.struct;
+  const s = { buffer: d.buffer, ok: false };
+  if (d.bpm && d.grid != null) {
+    const ch = d.buffer.getChannelData(0), sr = d.buffer.sampleRate, bar = 240 / d.bpm;
+    const n = Math.max(0, Math.floor((d.dur - d.grid) / bar)), e = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = Math.floor((d.grid + i * bar) * sr), b = Math.floor((d.grid + (i + 1) * bar) * sr);
+      let sum = 0, c = 0;
+      for (let j = a; j < b; j += 16) { sum += ch[j] * ch[j]; c++; }
+      e[i] = Math.sqrt(sum / (c || 1));
+    }
+    const ref = [...e].sort((x, y) => x - y)[Math.floor(n * .75)] || 0, full = i => e[i] >= ref * .7;
+    let intro = 0;
+    while (intro < n - 4 && ![0, 1, 2, 3].every(k => full(intro + k))) intro++; // first 4 full bars in a row
+    let outro = n;
+    while (outro > intro + 4 && !full(outro - 1)) outro--; // the quiet bars at the end
+    Object.assign(s, { ok: n >= 16, bar, bars: n, intro: Math.floor(intro / 4) * 4, outro: Math.min(n, Math.ceil(outro / 4) * 4) });
+  }
+  return d.struct = s;
+}
+
+// Decide how and where the next change happens (positions in the playing track's own seconds)
+function planMix(L, N) {
+  const sL = structure(L), sN = structure(N), now = L.position();
+  const gap = L.bpm && N.bpm ? Math.abs(tempoShift(L.effectiveBpm(), N.bpm)) : 99;
+  const keyOk = keyStep(L.heardKey(), N.key, true)[2];
+  if (!sL.ok) return { style: 'blend', startAt: Math.max(now, L.dur - 17), len: Math.min(16, L.dur / 4), bars: 0, nBar: 0, sync: gap <= 8, why: '' };
+  const style = gap > 8 || (sN.ok && sN.intro < 4) ? 'echo' : keyOk ? 'blend' : 'filter';
+  const why = gap > 8 ? 'tempos too far apart to sync' : style === 'echo' ? 'next track has no intro' : style === 'filter' ? 'keys clash' : '';
+  const outroBars = sL.bars - sL.outro;
+  let bars = style === 'echo' ? 1 : style === 'filter' ? 8
+    : clamp(Math.min(outroBars >= 8 ? outroBars : 16, sN.ok && sN.intro >= 8 ? sN.intro : 16), 8, 32);
+  if (style === 'blend') bars = Math.floor(bars / 4) * 4;
+  // Start where the outro starts; with no usable outro, on the last 8-bar phrase that leaves room
+  let b = outroBars >= Math.max(bars, 4) ? sL.outro : Math.floor((sL.bars - bars - 1) / 8) * 8;
+  const at = k => L.grid + k * sL.bar;
+  if (at(b) < now) b = Math.ceil((now - L.grid) / sL.bar); // already past it: the next bar line
+  bars = Math.max(1, Math.min(bars, sL.bars - b));
+  // Echo out skips the next track's intro and drops it on its first full section
+  return { style, startAt: at(b), len: bars * sL.bar, bars, nBar: style === 'echo' && sN.ok ? sN.intro : 0, sync: gap <= 8, why };
+}
+
+// Start the incoming track: synced if close enough, on the chosen bar, in phase with where the outgoing one is
+function startNext(L, N, P, fromPos) {
+  if (P.sync && L.bpm && N.bpm) {
+    const target = L.effectiveBpm();
+    N.setTempo(clamp([1, 2, .5].map(f => (target / (N.bpm * f) - 1) * 100).reduce((x, y) => Math.abs(y) < Math.abs(x) ? y : x), -16, 16));
+  }
+  const elapsed = (fromPos - P.startAt) / L.rate - (P.style === 'echo' ? P.len / L.rate : 0);
+  const at = N.grid != null && N.bpm ? N.grid + P.nBar * 240 / N.bpm + Math.max(0, elapsed) * N.rate : 0;
+  flxSlide(document.getElementById('fader-' + N.id), document.getElementById('fader-' + L.id).value); // same channel level
+  N.seek(at);
+  N.play();
 }
 
 function beginMix(L, N) {
-  // Tempo: match the playing track, counting half and double time
-  if (L.bpm && N.bpm) {
-    const target = L.effectiveBpm();
-    const t = [1, 2, .5].map(f => (target / (N.bpm * f) - 1) * 100).reduce((x, y) => Math.abs(y) < Math.abs(x) ? y : x);
-    N.setTempo(clamp(t, -16, 16));
-  }
-  // Phase: N's bar 1 lands where L's phrase started, plus however far L has moved on since
-  const elapsed = (L.position() - AUTO.startAt) / L.rate;
-  const at = N.grid != null ? N.grid + elapsed * N.rate : 0;
-  const fl = document.getElementById('fader-' + L.id), fn = document.getElementById('fader-' + N.id);
-  flxSlide(fn, fl.value); // same channel level as the track it replaces
+  const P = AUTO.plan;
+  AUTO.mix = { ...P, t0: ctx.currentTime, secs: P.len / L.rate, from: L.id, swapped: false, dropped: false };
+  if (P.style === 'echo') { L.setFx(ECHO_FX, true); return; } // the next track drops after one bar of echo
   knobTo(N.id, 'low', 0); // incoming bass out until the swap
-  N.seek(at);
-  N.play();
-  AUTO.mix = { t0: ctx.currentTime, secs: AUTO.mixLen / L.rate, swapped: false, from: L.id };
+  startNext(L, N, P, L.position());
+}
+
+function finishMix(L, N) {
+  L.stop();
+  knobTo(L.id, 'low', .5);
+  knobTo(L.id, 'filter', .5);
+  AUTO.mix = null; AUTO.live = N.id; AUTO.i = AUTO.next;
+  autoLoad(L.id, autoNextIndex(AUTO.i + 1)); // the free deck takes the track after
 }
 
 function autoTick() {
   if (!AUTO.on) return;
-  const L = decks[AUTO.live], N = decks[otherId(AUTO.live)];
-  if (AUTO.mix) {
-    const p = Math.min(1, (ctx.currentTime - AUTO.mix.t0) / AUTO.mix.secs), x = AUTO.mix.from === 'a' ? p : 1 - p;
-    flxSlide(xfade, x.toFixed(3));
-    if (p >= .5 && !AUTO.mix.swapped) { AUTO.mix.swapped = true; knobTo(L.id, 'low', 0); knobTo(N.id, 'low', .5); }
-    if (p >= 1) {
-      L.stop();
-      knobTo(L.id, 'low', .5);
-      AUTO.mix = null; AUTO.live = N.id; AUTO.i = AUTO.next;
-      autoLoad(L.id, autoNextIndex(AUTO.i + 1)); // the free deck takes the track after
+  const L = decks[AUTO.live], N = decks[otherId(AUTO.live)], m = AUTO.mix;
+  if (m) {
+    const p = clamp((ctx.currentTime - m.t0) / m.secs, 0, 1), side = v => (m.from === 'a' ? v : 1 - v);
+    if (m.style === 'echo') {
+      if (!m.dropped) {
+        if (p >= 1) { // the drop: stop feeding the echo so it rings out, bring the next track in at full
+          const pos = L.position();
+          L.setFx(ECHO_FX, false);
+          L.stop();
+          startNext(L, N, m, pos);
+          flxSlide(xfade, side(.5));
+          Object.assign(m, { dropped: true, t0: ctx.currentTime, secs: 960 / (N.effectiveBpm() || 120) }); // 4 bars for the tail
+        }
+      } else {
+        flxSlide(xfade, side(.5 + .5 * p).toFixed(3));
+        if (p >= 1) finishMix(L, N);
+      }
+      return autoShow();
     }
+    flxSlide(xfade, side(p).toFixed(3));
+    if (m.style === 'filter') knobTo(L.id, 'filter', .5 + .42 * p); // high-pass rises as it fades
+    if (p >= (m.style === 'filter' ? .75 : .5) && !m.swapped) { m.swapped = true; knobTo(L.id, 'low', 0); knobTo(N.id, 'low', .5); }
+    if (p >= 1) finishMix(L, N);
     return autoShow();
   }
   if (!L.playing) {
     // The track ran out before the next was ready (or the set is over)
-    if (AUTO.ready) { AUTO.startAt = L.position(); AUTO.mixLen = 240 / (L.bpm || 120); beginMix(L, N); return; }
+    if (AUTO.ready) {
+      AUTO.plan = { style: 'blend', startAt: L.position(), len: 240 / (L.bpm || 120), bars: 1, nBar: 0, sync: true, why: '' };
+      beginMix(L, N);
+      return;
+    }
     if (AUTO.next < 0) return stopAuto(`Auto DJ finished the set: ${AUTO.i + 1} tracks.`);
     return autoShow();
   }
   if (Math.abs(L.tempo) > .02) L.setTempo(L.tempo * .997); // ease home, a few seconds per percent
   if (AUTO.ready) {
-    AUTO.startAt ??= mixPoint(L);
-    if (L.position() >= AUTO.startAt) beginMix(L, N);
+    AUTO.plan ??= planMix(L, N);
+    if (L.position() >= AUTO.plan.startAt) beginMix(L, N);
   }
   autoShow();
 }
 
+const STYLE_NAME = { blend: 'blend', filter: 'filter sweep', echo: 'echo out' };
 function autoShow() {
   autoText.textContent = `AUTO ${AUTO.i + 1}/${plan.length}`;
-  const L = decks[AUTO.live];
+  const L = decks[AUTO.live], P = AUTO.mix || AUTO.plan;
+  const how = P && (P.style === 'blend' && P.bars ? `${P.bars}-bar blend` : STYLE_NAME[P.style]) + (P.why ? ` (${P.why})` : '');
   let s = `Auto DJ · ${AUTO.i + 1} of ${plan.length}: ${L.title}`;
-  if (AUTO.mix) s += ` · mixing into ${decks[otherId(AUTO.live)].title}`;
-  else if (AUTO.ready && AUTO.startAt != null) s += ` · next mix in ${fmt(Math.max(0, (AUTO.startAt - L.position()) / L.rate)).slice(0, -2)}`;
+  if (AUTO.mix) s += ` · ${how} into ${decks[otherId(AUTO.live)].title}`;
+  else if (P) s += ` · ${how} in ${fmt(Math.max(0, (P.startAt - L.position()) / L.rate)).slice(0, -2)}`;
   else if (AUTO.next >= 0) s += ' · getting the next track ready';
   else s += ' · last track';
   statusEl.textContent = s;
@@ -2523,7 +2589,7 @@ async function startAuto() {
   Object.assign(AUTO, { on: true, i: first, live: 'a', mix: null });
   autoBtn.classList.add('on'); autoBtn.setAttribute('aria-pressed', 'true');
   for (const d of Object.values(decks)) { d.stop(); d.setTempo(0); }
-  for (const d of ['a', 'b']) knobTo(d, 'low', .5);
+  for (const d of ['a', 'b']) { knobTo(d, 'low', .5); knobTo(d, 'filter', .5); }
   flxSlide(xfade, 0);
   statusEl.textContent = 'Auto DJ · loading the first track…';
   await autoLoad('a', first);
@@ -2536,8 +2602,10 @@ async function startAuto() {
 }
 function stopAuto(msg) {
   clearInterval(AUTO.timer);
-  if (AUTO.mix) { const L = AUTO.mix.from; knobTo(L, 'low', .5); knobTo(otherId(L), 'low', .5); } // leave both decks playing as they are
-  Object.assign(AUTO, { on: false, mix: null, ready: false });
+  if (AUTO.mix) { // leave both decks playing as they are, with the EQ and filter back to neutral
+    for (const d of ['a', 'b']) { knobTo(d, 'low', .5); knobTo(d, 'filter', .5); decks[d].setFx(ECHO_FX, false); }
+  }
+  Object.assign(AUTO, { on: false, mix: null, ready: false, plan: null });
   autoBtn.classList.remove('on'); autoBtn.setAttribute('aria-pressed', 'false');
   autoText.textContent = 'AUTO DJ';
   statusEl.textContent = msg || 'Auto DJ stopped. The decks are yours.';
