@@ -1140,6 +1140,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
       <article role="tabpanel" data-topic="decks">
         <h3>Decks and transport</h3>
         <dl>
+          <dt>Keyboard</dt><dd>Deck 1: left Ctrl is CUE and left Shift is PLAY. Deck 2: right Ctrl is CUE and right Shift is PLAY. CUE behaves like the button (hold to preview, let go to return), and pressing PLAY while holding CUE keeps the track playing. The keys do nothing while you're typing in a search box. Avoid Ctrl shortcuts such as Ctrl+F5 mid-set: the Ctrl press counts as CUE.</dd>
           <dt>PLAY</dt><dd>Starts and pauses the deck.</dd>
           <dt>CUE</dt><dd>While playing: jumps back to the cue point and stops. Paused on the cue point: hold to preview, let go to return. Paused anywhere else: sets the cue point there. The amber triangle on the waveform marks it.</dd>
           <dt>CUE → PLAY</dt><dd>Hold CUE to preview, slide onto PLAY (it lights up) and let go to keep the track playing.</dd>
@@ -3275,6 +3276,30 @@ function renderPads(deck, u) {
   });
   u.modes.forEach(m => m.classList.toggle('on', m.dataset.mode === deck.mode));
 }
+
+// ---- Keyboard: left Ctrl / left Shift are CUE / PLAY on deck 1, right Ctrl / right Shift the same on deck 2 ----
+// CUE works like the button: hold it while stopped to preview from the cue point, let go to jump back.
+// Press PLAY while holding CUE and the track keeps playing when CUE is let go, as on a CDJ.
+// Ignored while typing in a box, so capital letters in a search never start a deck.
+const KEYS = { ControlLeft: ['a', 'cue'], ShiftLeft: ['a', 'play'], ControlRight: ['b', 'cue'], ShiftRight: ['b', 'play'] };
+const cueHeld = { a: false, b: false };
+const typing = e => e.target.closest?.('input:not([type=range]):not([type=checkbox]):not([type=radio]), textarea, select, [contenteditable=""], [contenteditable="true"]');
+document.addEventListener('keydown', e => {
+  const k = KEYS[e.code];
+  if (!k || e.repeat || typing(e)) return;
+  const [d, what] = k, deck = decks[d];
+  ctx.resume();
+  if (what === 'cue') { cueHeld[d] = true; deck.cueDown(); return; }
+  if (cueHeld[d] && deck.previewing) deck.previewing = false; // CUE held + PLAY: carry on playing
+  else deck.toggle();
+});
+document.addEventListener('keyup', e => {
+  const k = KEYS[e.code];
+  if (!k || k[1] !== 'cue' || !cueHeld[k[0]]) return;
+  cueHeld[k[0]] = false;
+  decks[k[0]].cueUp();
+});
+addEventListener('blur', () => { for (const d of ['a', 'b']) if (cueHeld[d]) { cueHeld[d] = false; decks[d].cueUp(); } }); // window lost focus mid-press
 
 // ---- Help center: any [data-help] button opens it on that topic ----
 const help = document.getElementById('help');
