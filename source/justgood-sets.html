@@ -653,6 +653,11 @@ body:has(.rig.mobile) .strips { display: none; } /* each deck panel shows its ow
 .libdlg { box-sizing: border-box; width: min(1100px, calc(100vw - 32px)); height: min(780px, calc(100vh - 48px)); padding: 0; border: 1px solid var(--edge); border-radius: 14px; background: var(--chassis); color: var(--ink); box-shadow: 0 30px 80px rgb(0 0 0 / .6); }
 .libdlg::backdrop { background: rgb(8 6 20 / .72); }
 .libdlg[open] { display: grid; }
+/* Performance mode: the hardware does the playing, so the library takes the on-screen controller's place */
+body.perf .rig { display: none; }
+body.perf:has(.rig.mobile) .strips { display: grid; } /* the deck panels that normally show this are hidden */
+body.perf .libdlg { position: static; flex: 1 1 0; min-height: 460px; width: 100%; max-width: 1100px; height: auto; max-height: none; margin: 0 auto; grid-template-rows: minmax(0, 1fr); }
+body.perf #lib-close { display: none; }
 .btn.rec { font-variant-numeric: tabular-nums; }
 .btn.rec[data-state="on"] { color: #fff; background: #d6263b; border-color: #ff5a6c; animation: rec-pulse 1.2s ease-in-out infinite; }
 .btn.rec[data-state="ready"] { color: var(--ok); border-color: var(--ok); }
@@ -1003,6 +1008,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
     <div class="tb-group tb-hw">
       <label class="btn model-pick"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16"/><rect x="3" y="7" width="4" height="3" rx="1"/><rect x="10" y="13" width="4" height="3" rx="1"/><rect x="17" y="9" width="4" height="3" rx="1"/></svg><span>CONTROLLER</span> <select id="model" aria-label="Controller layout"><option value="classic">Classic</option><option value="mobile">Mobile</option><option value="mixstream">Mixstream Pro</option><option value="flx4">DDJ-FLX4</option><option value="flx2">DDJ-FLX2</option><option value="cdj">CDJ-2000NXS2 ×2</option></select></label>
       <button class="btn" id="flx-connect" title="Connect a Pioneer DDJ-FLX4 or DDJ-FLX2 (Chrome or Edge on a computer)"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4"/></svg><span>CONNECT</span></button>
+      <button class="btn" id="perf-btn" aria-pressed="false" title="Using a hardware controller: replace the on-screen controller with the library"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>PERFORM</span></button>
       <button class="btn" id="flx-sound" hidden title="Play the sound through the controller so its MASTER LEVEL and headphone knobs work"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg><span>SOUND → FLX4</span></button>
     </div>
     <div class="tb-group">
@@ -1135,6 +1141,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
           <dt>Use your library</dt><dd>Open it with LIBRARY at the top of the page or LOAD on a deck. Link a rekordbox or Engine DJ USB, import a rekordbox XML export or link a music folder there. See <button class="help-link" data-help="library">Library, rekordbox and Engine</button>.</dd>
           <dt>Mix two tracks</dt><dd>Play deck 1, load deck 2, press SYNC on deck 2, line up the beats in the stacked waveform, then bring it in with the crossfader.</dd>
           <dt>Knobs</dt><dd>Drag up or down, scroll, or use the arrow keys. Double-click returns a knob to its centre.</dd>
+          <dt>PERFORM</dt><dd>For playing from a hardware controller. PERFORM replaces the on-screen controller with the library, and keeps the waveforms and deck info above it. The library stays open after each load, so you can keep browsing from the controller. The keyboard keys still work. Press PERFORM again to bring the controller back.</dd>
           <dt>CONTROLLER</dt><dd>At the top of the page, switches the layout. Classic is the original two-deck layout. Mixstream Pro follows that unit's top panel: big platters, SYNC / CUE / PLAY down the left of each deck, the pitch fader with bend +/− on the right, one row of 4 pads (press the lit pad mode again for pads 5–8), and a centre screen with LOAD 1 / BROWSE / LOAD 2 and FX switches. Pick an effect in the middle, then click a channel's switch to latch it on, or hold the switch for a momentary effect.<br><br>DDJ-FLX4 follows that controller's top panel: IN / OUT / 4 BEAT/EXIT / CUE/LOOP CALL ◀ ▶ / BEAT SYNC across the top of each deck, SHIFT, CUE and PLAY down the left, TEMPO on the right, the level meters between the channel strips, MASTER LEVEL top right and a working BEAT FX section (channel 1, 2 or both, FX SELECT, BEAT ◀ ▶ for the echo time, LEVEL/DEPTH, ON/OFF). IN then OUT makes a loop on the beat; CUE/LOOP CALL halves or doubles a loop, or jumps between hot cues.<br><br>DDJ-FLX2 follows its smaller panel: no TRIM, master knob or meters (they keep their settings), and you change pad mode like on the unit: SHIFT, then BEAT SYNC, then one of the top four pads (HOT CUE, PAD FX, LOOP, SAMPLER). The labels over the pads work as a shortcut. On-screen SHIFT: click it, then press the next button.<br><br>CDJ-2000NXS2 ×2 follows the player's control panel, twice, with a mixer between: the four HOT CUE buttons down the left (BANK switches A–D and E–H), CUE and PLAY/PAUSE at the bottom left, BROWSE above the screen, the loop buttons top left of the jog and CUE/LOOP CALL top right, BEAT SYNC over the long TEMPO slider. The mixer calls the filter COLOR and has BEAT FX on the right, as on a DJM.<br><br>Every layout runs the same decks, and this browser remembers your choice. The controller layouts need a wide screen; phones and narrow windows show the Mobile layout.</dd>
         </dl>
       </article>
@@ -2424,7 +2431,8 @@ libList.addEventListener('change', renderRows);
 libSearch.addEventListener('input', renderRows);
 // The library is a pop-up: the header LIBRARY button opens it for either deck, a deck's LOAD opens it for that deck
 const libDlg = document.getElementById('library'), libTarget = document.getElementById('lib-target'), libFileBtn = document.getElementById('lib-file');
-let libFor = null;
+let libFor = null, perf = false;
+const libClose = () => { if (!perf) libDlg.close(); }; // in performance mode the library stays on the page
 function openLibrary(deckId) {
   libFor = deckId || null;
   const n = libFor === 'a' ? 1 : 2, touch = matchMedia('(pointer: coarse)').matches;
@@ -2432,20 +2440,20 @@ function openLibrary(deckId) {
   libTarget.style.setProperty('--led', libFor ? `var(--${libFor})` : '');
   libFileBtn.hidden = !libFor;
   if (lib.lists.length) renderRows();
-  if (!libDlg.open) libDlg.showModal();
-  libSearch.focus();
+  if (!libDlg.open) perf ? libDlg.show() : libDlg.showModal();
+  if (!perf) libSearch.focus(); // a focused search box would stop the keyboard's CUE, PLAY and hot cue keys
 }
 document.addEventListener('click', e => { const b = e.target.closest('[data-library]'); if (b) openLibrary(b.dataset.library); });
-document.getElementById('lib-close').addEventListener('click', () => libDlg.close());
-libDlg.addEventListener('click', e => { if (e.target === libDlg) libDlg.close(); }); // click on the backdrop
-libFileBtn.addEventListener('click', () => { if (libFor) { libDlg.close(); document.getElementById('file-' + libFor).click(); } });
+document.getElementById('lib-close').addEventListener('click', libClose);
+libDlg.addEventListener('click', e => { if (e.target === libDlg) libClose(); }); // click on the backdrop
+libFileBtn.addEventListener('click', () => { if (libFor) { libClose(); document.getElementById('file-' + libFor).click(); } });
 
 function loadTrack(tr, deckId) {
   const file = tr && fileFor(tr);
   if (!tr) return;
   if (!file) { statusEl.textContent = `${tr.title} isn't linked yet. Use LINK FOLDER OR USB and pick the folder it's in.`; return; }
   ctx.resume();
-  libDlg.close();
+  libClose();
   planDlg.close();
   readAnlz(tr).catch(() => {}).then(() => loadFile(decks[deckId], file, tr));
 }
@@ -3584,6 +3592,20 @@ async function flxAudio(fromClick) {
   }
 }
 flxSoundBtn.addEventListener('click', () => flxAudio(true));
+
+// Performance mode: the library replaces the on-screen controller; the waveforms and deck info stay
+const perfBtn = document.getElementById('perf-btn');
+function setPerf(on) {
+  if (libDlg.open) libDlg.close(); // it reopens the other way: modal over the page, or in place on it
+  perf = on;
+  document.body.classList.toggle('perf', on);
+  perfBtn.classList.toggle('on', on);
+  perfBtn.setAttribute('aria-pressed', on);
+  if (on) openLibrary('');
+  try { localStorage.setItem('perf', on ? '1' : '0'); } catch {}
+}
+perfBtn.addEventListener('click', () => setPerf(!perf));
+try { if (localStorage.getItem('perf') === '1' && matchMedia('(min-width: 701px)').matches) setPerf(true); } catch {}
 document.getElementById('flx-flip').addEventListener('click', () => {
   flxTempoFlip = !flxTempoFlip;
   flx.tempoTaken = [false, false];
@@ -3628,7 +3650,7 @@ function flxNote(ch, n, v) {
     else if (n === 0x4A || n === 0x4B) bfxBeat(n === 0x4A ? -1 : 1);
   } else if (ch === 6 && on) {
     if (n === 0x46 || n === 0x47) flxLoad(n === 0x46 ? 'a' : 'b');
-    else if (n === 0x41 || n === 0x42) libDlg.open ? libDlg.close() : openLibrary('');
+    else if (n === 0x41 || n === 0x42) libDlg.open ? libClose() : openLibrary('');
   } else if (ch >= 7 && ch <= 10) {
     const d = ch <= 8 ? 'a' : 'b', deck = decks[d], i = n & 0x07, shifted = ch === 8 || ch === 10;
     deck.padBase = n & 0x78;
