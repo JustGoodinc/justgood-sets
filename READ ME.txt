@@ -1,4 +1,4 @@
-JustGood Sets - desktop version (for the Pioneer DDJ-FLX4)
+JustGood Sets - desktop version (for the Pioneer DDJ-FLX4 and DDJ-FLX2; the FLX2 needs no driver either)
 
 1. Close rekordbox, Serato or any other DJ app (Windows lets only one app use the controller).
 2. Plug the DDJ-FLX4 into this computer over USB.

@@ -1002,8 +1002,8 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
   <nav class="bar-btns" aria-label="Tools">
     <div class="tb-group tb-hw">
       <label class="btn model-pick"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v16M12 4v16M19 4v16"/><rect x="3" y="7" width="4" height="3" rx="1"/><rect x="10" y="13" width="4" height="3" rx="1"/><rect x="17" y="9" width="4" height="3" rx="1"/></svg><span>CONTROLLER</span> <select id="model" aria-label="Controller layout"><option value="classic">Classic</option><option value="mobile">Mobile</option><option value="mixstream">Mixstream Pro</option><option value="flx4">DDJ-FLX4</option><option value="flx2">DDJ-FLX2</option><option value="cdj">CDJ-2000NXS2 ×2</option></select></label>
-      <button class="btn" id="flx-connect" title="Connect a Pioneer DDJ-FLX4 (Chrome or Edge on a computer)"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4"/></svg><span>CONNECT</span></button>
-      <button class="btn" id="flx-sound" hidden title="Play the sound through the DDJ-FLX4 so its MASTER LEVEL and headphone knobs work"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg><span>SOUND → FLX4</span></button>
+      <button class="btn" id="flx-connect" title="Connect a Pioneer DDJ-FLX4 or DDJ-FLX2 (Chrome or Edge on a computer)"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4"/></svg><span>CONNECT</span></button>
+      <button class="btn" id="flx-sound" hidden title="Play the sound through the controller so its MASTER LEVEL and headphone knobs work"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg><span>SOUND → FLX4</span></button>
     </div>
     <div class="tb-group">
       <button class="btn" data-library="" aria-haspopup="dialog"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h11M4 11h11M4 16h7"/><circle cx="17.5" cy="17" r="2.5"/><path d="M20 17V7l-3 1"/></svg><span>LIBRARY</span></button>
@@ -1123,6 +1123,7 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
       <button role="tab" data-topic="library">Library, rekordbox and Engine</button>
       <button role="tab" data-topic="analysis">Analysis and lights</button>
       <button role="tab" data-topic="flx4">DDJ-FLX4 controller</button>
+      <button role="tab" data-topic="flx2">DDJ-FLX2 controller</button>
     </nav>
     <div class="help-pages">
       <article role="tabpanel" data-topic="start">
@@ -1215,6 +1216,19 @@ button, .pad, .mode, .btn, input[type=range] { touch-action: manipulation; }
           <dt>Check analysis</dt><dd>In the library, pick a rekordbox or Engine DJ playlist and press CHECK ANALYSIS. Up to the number of tracks you choose are analysed here from scratch and compared with what your DJ software worked out: BPM (including half or double time), key (exact, a wheel neighbour, or wrong) and, with rekordbox beat grids, whether bar 1 lands on the same beat. Nothing in your library changes. It shows where this app's analysis agrees with yours and where it needs work.</dd>
           <dt>Auto DJ</dt><dd>Plan a set, then press ▶ AUTO DJ THIS SET (or AUTO DJ in the toolbar). It plays the set in order by itself. It reads each track's structure from its loudness, bar by bar, to find the intro and the outro, then picks a transition for each pair, shown in the status line. A blend syncs the tempos and lays the outgoing outro over the incoming intro (8 to 32 bars, as long as both allow), swapping the bass halfway so two kick drums never clash. A filter sweep is used when the keys clash: the outgoing track is high-passed away over 8 bars. An echo out is used when the tempos are over 8% apart or the next track has no intro: the outgoing track echoes for a bar and stops, and the next drops straight into its first full section. Between mixes the playing track eases back to its own tempo. Press AUTO DJ again to stop: both decks keep playing and are yours. Press REC first to record the whole set.</dd>
           <dt>Read-only</dt><dd>Changes made here, such as cues and grid edits, are never written back to rekordbox or Engine DJ.</dd>
+        </dl>
+      </article>
+      <article role="tabpanel" data-topic="flx2">
+        <h3>DDJ-FLX2 controller</h3>
+        <p>The FLX2 works like the FLX4: Chrome or Edge on a computer, using the desktop version. It needs no driver. Plug it in over USB (Bluetooth MIDI isn't supported here) and Windows sets it up by itself. This mapping comes from AlphaTheta's MIDI list and hasn't been tried on a real FLX2 yet.</p>
+        <dl>
+          <dt>Connect</dt><dd>Close rekordbox and any other DJ app, plug in the FLX2, press CONNECT at the top of the page and allow MIDI when Chrome asks. The button shows FLX2 ✓. Pick DDJ-FLX2 under CONTROLLER to see its layout.</dd>
+          <dt>Sound</dt><dd>Once connected, the app plays through the FLX2. If SOUND → FLX2 appears at the top, press it, or set DDJ-FLX2 as the output in Windows Sound settings.</dd>
+          <dt>Decks</dt><dd>PLAY, CUE, BEAT SYNC and SHIFT + CUE (back to the start) work as labelled, as do TEMPO, EQ, CFX (the filter), the channel faders, the crossfader and MASTER LEVEL.</dd>
+          <dt>Jog wheels</dt><dd>Turn the outer ring while playing to nudge the beats into line. Touch the top to hold the record: it stops, turning scrubs, and letting go plays on.</dd>
+          <dt>Pad modes</dt><dd>Hold SHIFT, press BEAT SYNC, then press HOT CUE, PAD FX, LOOP or SAMPLER on the top row of pads. SAMPLER opens GRID here. SHIFT + pad clears a hot cue, or latches a pad effect.</dd>
+          <dt>Library</dt><dd>The FLX2 has no BROWSE knob or LOAD buttons. Hold SHIFT and turn a jog wheel to open the library and scroll; hold SHIFT and press a deck's headphone cue button to load the highlighted track onto that deck.</dd>
+          <dt>Not mapped</dt><dd>SMART FADER, the headphone cue buttons on their own, and fader start.</dd>
         </dl>
       </article>
       <article role="tabpanel" data-topic="flx4">
@@ -3473,12 +3487,17 @@ renderBfx();
 
 // ---- Pioneer DDJ-FLX4 over Web MIDI (Chrome or Edge on a computer; the claude.ai frame blocks it) ----
 // Message numbers come from Mixxx's FLX4 mapping: github.com/mixxxdj/mixxx, res/controllers/Pioneer-DDJ-FLX4*.
+// The FLX2 shares most of them. Its differences come from AlphaTheta's list (assets.pioneerdjhub.com/DDJ-FLX2_MIDI_Message_List_E1.pdf)
+// and the Mixxx FLX2 mapping (pull request 16567, tested on a real unit): it's USB class compliant, so no driver is needed.
 // Decks are MIDI channels 0/1; pads 7/9 (8/10 with SHIFT); mixer extras and LOAD/BROWSE on channel 6.
 // Faders and knobs send 14-bit values (MSB on CC n, LSB on CC n + 0x20); the jog wheels send 64 ± ticks, 720 a turn.
-const flx = { access: null, input: null, output: null, msb: {}, shift: [false, false], held: [null, null], jogAt: [0, 0], tempoTaken: [false, false], tempoSet: [null, null], tempoPrev: [null, null], sent: new Map(), lightsAt: 0, keepAliveAt: 0, sysex: false };
+const flx = { access: null, input: null, output: null, msb: {}, shift: [false, false], held: [null, null], jogAt: [0, 0], tempoTaken: [false, false], tempoSet: [null, null], tempoPrev: [null, null], sent: new Map(), lightsAt: 0, keepAliveAt: 0, sysex: false, name: 'FLX4', is2: false, ticks: 720, browseAcc: 0 };
 const FLX_KEEPALIVE = [0xF0, 0x00, 0x40, 0x05, 0x00, 0x00, 0x04, 0x05, 0x00, 0x50, 0x02, 0xF7]; // also asks the FLX4 to report where every control is
 // Mode buttons: [our pad mode, the note block the FLX4's pads use in that mode]. SHIFT + the same button sends the second note.
 const FLX_MODES = { 0x1B: ['hot', 0x00], 0x69: ['hot', 0x40], 0x1E: ['fx', 0x10], 0x6B: ['fx', 0x50], 0x20: ['loop', 0x20], 0x6D: ['loop', 0x60], 0x22: ['grid', 0x30], 0x6F: ['grid', 0x70] };
+// The FLX2 has no pad-mode buttons: SHIFT + BEAT SYNC picks the mode on the unit, and the pads then send that mode's note block
+const FLX2_PADS = { 0x00: 'hot', 0x10: 'fx', 0x60: 'loop', 0x30: 'grid' };
+const FLX2_REPORT = [0xF0, 0x00, 0x40, 0x05, 0x00, 0x00, 0x02, 0x0A, 0x00, 0x03, 0x01, 0xF7]; // asks the FLX2 to report where every control is
 const FLX_KNOBS = { 0x04: 'trim', 0x07: 'high', 0x0B: 'mid', 0x0F: 'low' };
 const flxBtn = document.getElementById('flx-connect');
 let flxTempoFlip = false;
@@ -3493,7 +3512,7 @@ function flxSend(...bytes) {
   try { flx.output.send(bytes); } catch {}
 }
 function flxStatus(text, on) {
-  flxBtn.querySelector('span').textContent = on ? 'FLX4 ✓' : 'CONNECT';
+  flxBtn.querySelector('span').textContent = on ? flx.name + ' ✓' : 'CONNECT';
   flxBtn.classList.toggle('on', !!on);
   if (text) statusEl.textContent = text;
 }
@@ -3501,7 +3520,7 @@ function flxStatus(text, on) {
 async function flxConnect(prompted) {
   if (!navigator.requestMIDIAccess) return flxStatus('Controllers need Chrome or Edge on a computer. Safari and iPhone have no MIDI support.');
   try {
-    // SysEx lets us send the keep-alive; if it's refused, try again without it (the FLX4 may then fall into its demo lights)
+    // SysEx lets us send the keep-alive; if it's refused, try again without it (the controller may then fall into its demo lights)
     try { flx.access = await navigator.requestMIDIAccess({ sysex: true }); flx.sysex = true; }
     catch { flx.access = await navigator.requestMIDIAccess(); flx.sysex = false; }
   } catch {
@@ -3511,21 +3530,24 @@ async function flxConnect(prompted) {
   flxFind(prompted);
 }
 function flxFind(prompted) {
-  const find = list => [...list.values()].find(p => /FLX4/i.test(p.name) && p.state === 'connected') || null;
-  const input = find(flx.access.inputs), output = find(flx.access.outputs);
-  if (input === flx.input && output === flx.output) return;
+  const find = (list, re) => [...list.values()].find(p => re.test(p.name) && p.state === 'connected') || null;
+  const input = find(flx.access.inputs, /FLX[24]/i), name = input && /FLX2/i.test(input.name) ? 'FLX2' : 'FLX4';
+  const output = input && find(flx.access.outputs, new RegExp(name, 'i'));
+  if (input === flx.input && (output || null) === flx.output) return;
   if (flx.input) flx.input.onmidimessage = null;
-  Object.assign(flx, { input, output, tempoTaken: [false, false] });
+  Object.assign(flx, { input, output: output || null, tempoTaken: [false, false], name, is2: name === 'FLX2', ticks: name === 'FLX2' ? 460 : 720 }); // FLX2: 460 ticks a turn
   flx.sent.clear();
   if (!input) {
-    flxStatus(prompted || flxBtn.classList.contains('on') ? 'No DDJ-FLX4 found. Plug it in over USB and close rekordbox or any other DJ app that is using it.' : '', false);
+    flxStatus(prompted || flxBtn.classList.contains('on') ? 'No DDJ-FLX4 or DDJ-FLX2 found. Plug it in over USB and close rekordbox or any other DJ app that is using it.' : '', false);
     flxSoundBtn.hidden = true;
     if (flx.sound) { flx.sound = false; ctx.setSinkId('').catch(() => {}); } // back to this computer's speakers
     return;
   }
   input.onmidimessage = e => flxMessage(e.data);
-  if (output && flx.sysex) output.send(FLX_KEEPALIVE);
-  flxStatus('DDJ-FLX4 connected.', true);
+  if (output && flx.sysex) output.send(flx.is2 ? FLX2_REPORT : FLX_KEEPALIVE);
+  if (output && flx.is2) [0x90, 0x91].forEach(st => output.send([st, 0x17, 0x7F])); // vinyl mode on: the top of the jog scratches
+  flxSoundBtn.querySelector('span').textContent = 'SOUND → ' + name;
+  flxStatus(`DDJ-${name} connected.`, true);
   flxAudio(false);
   if (lib.lists.length) renderRows();
 }
@@ -3536,10 +3558,10 @@ flxBtn.addEventListener('click', () => flxConnect(true));
 const flxSoundBtn = document.getElementById('flx-sound');
 async function flxAudio(fromClick) {
   if (!ctx.setSinkId || !navigator.mediaDevices?.enumerateDevices) {
-    if (fromClick) statusEl.textContent = "This browser can't choose a sound output. In Windows Sound settings, set DDJ-FLX4 as the output.";
+    if (fromClick) statusEl.textContent = `This browser can't choose a sound output. In Windows Sound settings, set DDJ-${flx.name} as the output.`;
     return;
   }
-  const find = async () => (await navigator.mediaDevices.enumerateDevices()).find(d => d.kind === 'audiooutput' && /FLX4/i.test(d.label));
+  const find = async () => (await navigator.mediaDevices.enumerateDevices()).find(d => d.kind === 'audiooutput' && d.label.toUpperCase().includes(flx.name));
   let dev = await find().catch(() => null);
   if (!dev && fromClick) {
     // Chrome only names sound devices for pages allowed to use the microphone; nothing is recorded, the stream stops at once
@@ -3548,17 +3570,17 @@ async function flxAudio(fromClick) {
   if (!dev) {
     flxSoundBtn.hidden = false;
     statusEl.textContent = fromClick
-      ? "Couldn't find the DDJ-FLX4's sound output. Allow the microphone prompt (it's only used to list sound devices), or set DDJ-FLX4 as the output in Windows Sound settings."
-      : 'DDJ-FLX4 connected. Sound still plays from this computer, so MASTER LEVEL does nothing yet: press SOUND → FLX4.';
+      ? `Couldn't find the DDJ-${flx.name}'s sound output. Allow the microphone prompt (it's only used to list sound devices), or set DDJ-${flx.name} as the output in Windows Sound settings.`
+      : `DDJ-${flx.name} connected. Sound still plays from this computer: press SOUND → ${flx.name}.`;
     return;
   }
   try {
     await ctx.setSinkId(dev.deviceId);
     flx.sound = true;
     flxSoundBtn.hidden = true;
-    statusEl.textContent = 'DDJ-FLX4 connected. Sound plays through it, so MASTER LEVEL and the headphone knobs work.';
+    statusEl.textContent = `DDJ-${flx.name} connected. Sound plays through it, so MASTER LEVEL and the headphone knobs work.`;
   } catch {
-    statusEl.textContent = "Couldn't switch the sound to the DDJ-FLX4. In Windows Sound settings, set DDJ-FLX4 as the output.";
+    statusEl.textContent = `Couldn't switch the sound to the DDJ-${flx.name}. In Windows Sound settings, set DDJ-${flx.name} as the output.`;
   }
 }
 flxSoundBtn.addEventListener('click', () => flxAudio(true));
@@ -3566,7 +3588,7 @@ document.getElementById('flx-flip').addEventListener('click', () => {
   flxTempoFlip = !flxTempoFlip;
   flx.tempoTaken = [false, false];
   try { localStorage.setItem('flxTempoFlip', flxTempoFlip ? '1' : '0'); } catch {}
-  statusEl.textContent = flxTempoFlip ? 'FLX4 tempo faders reversed.' : 'FLX4 tempo faders back to normal.';
+  statusEl.textContent = flxTempoFlip ? 'Tempo faders reversed.' : 'Tempo faders back to normal.';
 });
 // Reconnect quietly on later visits once Chrome has been allowed
 navigator.permissions?.query({ name: 'midi', sysex: true }).then(p => { if (p.state === 'granted') flxConnect(false); }).catch(() => {});
@@ -3586,6 +3608,8 @@ function flxNote(ch, n, v) {
     else if (n === 0x0C) on ? deck.cueDown() : deck.cueUp();
     else if (n === 0x48) { if (on) { deck.stop(); deck.seek(0); } } // SHIFT + CUE: back to the start
     else if (n === 0x58) { if (on) ui[d].sync.click(); }
+    else if (flx.is2 && n === 0x08) { if (on) flxLoad(d); } // SHIFT + headphone cue: the FLX2 has no LOAD buttons
+    else if (flx.is2 && n === 0x5C) { if (on) flxSend(0x90 | ch, 0x5C, 0x7F); } // SHIFT + BEAT SYNC: pad mode select, the unit does the rest
     else if (n === 0x36) flxTouch(ch, deck, on);
     else if (n === 0x10) { if (on) deck.loopInPress(); } // IN
     else if (n === 0x11) { if (on) deck.loopOutPress(); } // OUT
@@ -3608,6 +3632,7 @@ function flxNote(ch, n, v) {
   } else if (ch >= 7 && ch <= 10) {
     const d = ch <= 8 ? 'a' : 'b', deck = decks[d], i = n & 0x07, shifted = ch === 8 || ch === 10;
     deck.padBase = n & 0x78;
+    if (flx.is2) deck.mode = FLX2_PADS[deck.padBase] ?? deck.mode;
     if (deck.mode === 'fx') {
       if (shifted) { if (on) { deck.fxLatch[i] = !deck.fxOn[i]; deck.setFx(i, deck.fxLatch[i]); } }
       else if (on) { deck.fxLatch[i] = false; deck.setFx(i, true); }
@@ -3623,7 +3648,10 @@ function flxTouch(ch, deck, on) {
 }
 
 function flxCC(ch, n, v) {
-  if ((ch === 0 || ch === 1) && n >= 0x21 && n <= 0x23) return flxJog(ch, decks[ch ? 'b' : 'a'], n, v - 64); // jogs aren't 14-bit
+  if ((ch === 0 || ch === 1) && (n >= 0x21 && n <= 0x23 || flx.is2 && n === 0x29)) { // jogs aren't 14-bit
+    if (flx.is2 && (n === 0x29 || flx.shift[ch])) return flxJogBrowse(v - 64);
+    return flxJog(ch, decks[ch ? 'b' : 'a'], n, v - 64);
+  }
   // 14-bit pairs: remember the coarse half, apply when the fine half arrives (or right away for the coarse one)
   let val;
   if (n < 0x20) { flx.msb[(ch << 8) | n] = v; val = (v << 7) / 16383; }
@@ -3641,6 +3669,7 @@ function flxCC(ch, n, v) {
     if (val == null) return;
     if (n === 0x17 || n === 0x18) flxKnob(n === 0x17 ? 'a' : 'b', 'filter')?.setValue(val);
     else if (n === 0x1F) flxSlide(xfade, val);
+    else if (flx.is2 && n === 0x08) knobEl(null, 'master')?.setValue(val); // the FLX2's MASTER LEVEL sends MIDI; the FLX4's doesn't
   }
 }
 
@@ -3664,12 +3693,12 @@ function flxTempo(ch, d, val) {
 function flxJog(ch, deck, n, ticks) {
   const now = performance.now();
   if (flx.held[ch] || !deck.playing || n === 0x22) {
-    deck.seek(deck.position() + ticks / 720 * 1.8);
+    deck.seek(deck.position() + ticks / flx.ticks * 1.8);
     return;
   }
   const dt = Math.max(4, now - (flx.jogAt[ch] || now - 16)) / 1000;
   flx.jogAt[ch] = now;
-  deck.jogVel = (deck.jogVel || 0) * 0.6 + (ticks * 2 * Math.PI / 720 / dt) * 0.4;
+  deck.jogVel = (deck.jogVel || 0) * 0.6 + (ticks * 2 * Math.PI / flx.ticks / dt) * 0.4;
   deck.jogAt = now;
 }
 
@@ -3680,6 +3709,14 @@ function flxBrowse(steps) {
   renderRows();
   libRows.children[libCursor]?.scrollIntoView({ block: 'nearest' });
 }
+// The FLX2 has no BROWSE knob: SHIFT + jog scrolls the library, about 38 rows a turn
+function flxJogBrowse(ticks) {
+  flx.browseAcc += ticks;
+  const steps = Math.trunc(flx.browseAcc / 12);
+  if (!steps) return;
+  flx.browseAcc -= steps * 12;
+  flxBrowse(steps);
+}
 function flxLoad(d) {
   if (libDlg.open && libShown[libCursor]) loadRow(libCursor, d);
   else openLibrary(d);
@@ -3687,7 +3724,7 @@ function flxLoad(d) {
 
 // Lights, about 20 times a second, sending only what changed
 function flxLights(now) {
-  if (flx.sysex && now - flx.keepAliveAt > 200) { flx.keepAliveAt = now; try { flx.output.send(FLX_KEEPALIVE); } catch {} }
+  if (flx.sysex && !flx.is2 && now - flx.keepAliveAt > 200) { flx.keepAliveAt = now; try { flx.output.send(FLX_KEEPALIVE); } catch {} }
   if (now - flx.lightsAt < 50) return;
   flx.lightsAt = now;
   const blink = now % 1000 < 500;
@@ -3696,9 +3733,10 @@ function flxLights(now) {
     flxSend(0x90 | ch, 0x0B, on(deck.playing));
     flxSend(0x90 | ch, 0x0C, on(!deck.playing && deck.buffer && blink));
     flxSend(0x90 | ch, 0x58, on(u.sync.classList.contains('on')));
-    flxSend(0xB0 | ch, 0x02, Math.round(clamp(u.vu.level || 0, 0, 1) * 127));
+    if (flx.is2) flxSend(0x9F, ch, on(deck.buffer)); // the track-loaded light; the FLX2 has no level meters or mode buttons
+    else flxSend(0xB0 | ch, 0x02, Math.round(clamp(u.vu.level || 0, 0, 1) * 127));
     const base = deck.padBase ?? 0;
-    for (const [note, [mode, b]] of Object.entries(FLX_MODES)) flxSend(0x90 | ch, +note, on(mode === deck.mode && b === base));
+    if (!flx.is2) for (const [note, [mode, b]] of Object.entries(FLX_MODES)) flxSend(0x90 | ch, +note, on(mode === deck.mode && b === base));
     for (let i = 0; i < 8; i++) {
       const lit = deck.mode === 'hot' ? deck.hot[i] != null : deck.mode === 'loop' ? deck.loop?.beats === LOOP_BEATS[i] : deck.mode === 'fx' ? deck.fxOn[i] : false;
       flxSend(ch ? 0x99 : 0x97, base + i, on(lit));
